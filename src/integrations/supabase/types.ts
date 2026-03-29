@@ -14,16 +14,262 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      assessment_answers: {
+        Row: {
+          assessment_id: string
+          created_at: string
+          id: string
+          observation: string | null
+          question_id: string
+          score: number
+        }
+        Insert: {
+          assessment_id: string
+          created_at?: string
+          id?: string
+          observation?: string | null
+          question_id: string
+          score: number
+        }
+        Update: {
+          assessment_id?: string
+          created_at?: string
+          id?: string
+          observation?: string | null
+          question_id?: string
+          score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_answers_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assessment_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assessments: {
+        Row: {
+          assessor_id: string
+          company_id: string
+          completed_at: string | null
+          created_at: string
+          id: string
+          maturity_level: Database["public"]["Enums"]["maturity_level"] | null
+          notes: string | null
+          overall_score: number | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          assessor_id: string
+          company_id: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          maturity_level?: Database["public"]["Enums"]["maturity_level"] | null
+          notes?: string | null
+          overall_score?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          assessor_id?: string
+          company_id?: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          maturity_level?: Database["public"]["Enums"]["maturity_level"] | null
+          notes?: string | null
+          overall_score?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      categories: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          sort_order: number
+          weight: number
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          sort_order?: number
+          weight?: number
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          sort_order?: number
+          weight?: number
+        }
+        Relationships: []
+      }
+      companies: {
+        Row: {
+          cnpj: string | null
+          contact_email: string | null
+          contact_name: string | null
+          created_at: string
+          created_by: string
+          id: string
+          name: string
+          sector: string | null
+          updated_at: string
+        }
+        Insert: {
+          cnpj?: string | null
+          contact_email?: string | null
+          contact_name?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          name: string
+          sector?: string | null
+          updated_at?: string
+        }
+        Update: {
+          cnpj?: string | null
+          contact_email?: string | null
+          contact_name?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          name?: string
+          sector?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          full_name: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          full_name?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          full_name?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      questions: {
+        Row: {
+          active: boolean
+          category_id: string
+          created_at: string
+          description: string | null
+          id: string
+          sort_order: number
+          text: string
+          weight: number
+        }
+        Insert: {
+          active?: boolean
+          category_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          sort_order?: number
+          text: string
+          weight?: number
+        }
+        Update: {
+          active?: boolean
+          category_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          sort_order?: number
+          text?: string
+          weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "questions_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "assessor"
+      maturity_level:
+        | "inicial"
+        | "repetivel"
+        | "definido"
+        | "gerenciado"
+        | "otimizado"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +396,15 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "assessor"],
+      maturity_level: [
+        "inicial",
+        "repetivel",
+        "definido",
+        "gerenciado",
+        "otimizado",
+      ],
+    },
   },
 } as const
