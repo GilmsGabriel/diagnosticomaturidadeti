@@ -237,7 +237,7 @@ const Questions = () => {
                               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEdit(q)}>
                                 <Pencil className="h-3 w-3" />
                               </Button>
-                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDelete(q.id)}>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteQuestion(q.id)}>
                                 <Trash2 className="h-3 w-3" />
                               </Button>
                             </div>
