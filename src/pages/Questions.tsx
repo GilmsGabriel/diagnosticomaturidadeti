@@ -191,7 +191,8 @@ const Questions = () => {
                 <Button type="submit" className="w-full">{editing ? 'Salvar' : 'Cadastrar'}</Button>
               </form>
             </DialogContent>
-          </Dialog>
+            </Dialog>
+          </div>
         )}
       </div>
 
