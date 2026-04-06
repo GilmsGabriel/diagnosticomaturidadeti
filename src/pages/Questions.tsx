@@ -210,11 +210,17 @@ const Questions = () => {
             return (
               <AccordionItem key={cat.id} value={cat.id} className="glass-card border-none">
                 <AccordionTrigger className="px-6 py-4 hover:no-underline">
-                  <div className="flex items-center gap-3 text-left">
+                  <div className="flex items-center gap-3 text-left flex-1">
                     <span className="font-semibold">{cat.name}</span>
                     <span className="text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">
                       {catQuestions.length} questões
                     </span>
+                    {isAdmin && (
+                      <div className="flex gap-1 ml-auto mr-2" onClick={e => e.stopPropagation()}>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditCat(cat)}><Pencil className="h-3 w-3" /></Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteCat(cat.id)}><Trash2 className="h-3 w-3" /></Button>
+                      </div>
+                    )}
                   </div>
                 </AccordionTrigger>
                 <AccordionContent className="px-6 pb-4">
