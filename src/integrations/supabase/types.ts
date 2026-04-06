@@ -14,6 +14,75 @@ export type Database = {
   }
   public: {
     Tables: {
+      action_plans: {
+        Row: {
+          assessment_id: string | null
+          company_id: string
+          created_at: string
+          created_by: string
+          how: string | null
+          how_much: string | null
+          id: string
+          priority: string
+          status: string
+          updated_at: string
+          what: string
+          when: string | null
+          where: string | null
+          who: string | null
+          why: string | null
+        }
+        Insert: {
+          assessment_id?: string | null
+          company_id: string
+          created_at?: string
+          created_by: string
+          how?: string | null
+          how_much?: string | null
+          id?: string
+          priority?: string
+          status?: string
+          updated_at?: string
+          what: string
+          when?: string | null
+          where?: string | null
+          who?: string | null
+          why?: string | null
+        }
+        Update: {
+          assessment_id?: string | null
+          company_id?: string
+          created_at?: string
+          created_by?: string
+          how?: string | null
+          how_much?: string | null
+          id?: string
+          priority?: string
+          status?: string
+          updated_at?: string
+          what?: string
+          when?: string | null
+          where?: string | null
+          who?: string | null
+          why?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "action_plans_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "action_plans_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assessment_answers: {
         Row: {
           assessment_id: string
@@ -166,6 +235,59 @@ export type Database = {
         }
         Relationships: []
       }
+      kpis: {
+        Row: {
+          category: string | null
+          company_id: string
+          created_at: string
+          created_by: string
+          current_value: number | null
+          description: string | null
+          id: string
+          name: string
+          status: string
+          target_value: number | null
+          unit: string | null
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          company_id: string
+          created_at?: string
+          created_by: string
+          current_value?: number | null
+          description?: string | null
+          id?: string
+          name: string
+          status?: string
+          target_value?: number | null
+          unit?: string | null
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          company_id?: string
+          created_at?: string
+          created_by?: string
+          current_value?: number | null
+          description?: string | null
+          id?: string
+          name?: string
+          status?: string
+          target_value?: number | null
+          unit?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kpis_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -227,6 +349,106 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      raci_entries: {
+        Row: {
+          accountable: string | null
+          company_id: string
+          consulted: string | null
+          created_at: string
+          created_by: string
+          id: string
+          informed: string | null
+          process: string
+          responsible: string | null
+          updated_at: string
+        }
+        Insert: {
+          accountable?: string | null
+          company_id: string
+          consulted?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          informed?: string | null
+          process: string
+          responsible?: string | null
+          updated_at?: string
+        }
+        Update: {
+          accountable?: string | null
+          company_id?: string
+          consulted?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          informed?: string | null
+          process?: string
+          responsible?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "raci_entries_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      risks: {
+        Row: {
+          category: string | null
+          company_id: string
+          created_at: string
+          created_by: string
+          description: string
+          id: string
+          impact: number
+          mitigation: string | null
+          probability: number
+          risk_level: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          company_id: string
+          created_at?: string
+          created_by: string
+          description: string
+          id?: string
+          impact?: number
+          mitigation?: string | null
+          probability?: number
+          risk_level?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          company_id?: string
+          created_at?: string
+          created_by?: string
+          description?: string
+          id?: string
+          impact?: number
+          mitigation?: string | null
+          probability?: number
+          risk_level?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "risks_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]

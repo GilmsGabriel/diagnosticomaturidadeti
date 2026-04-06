@@ -32,8 +32,11 @@ const Questions = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [open, setOpen] = useState(false);
+  const [catOpen, setCatOpen] = useState(false);
   const [editing, setEditing] = useState<Question | null>(null);
+  const [editingCat, setEditingCat] = useState<Category | null>(null);
   const [form, setForm] = useState({ text: '', description: '', category_id: '', weight: '1' });
+  const [catForm, setCatForm] = useState({ name: '', description: '', weight: '1' });
 
   const fetchData = async () => {
     const [catRes, qRes] = await Promise.all([
@@ -77,11 +80,43 @@ const Questions = () => {
     setOpen(true);
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDeleteQuestion = async (id: string) => {
     if (!confirm('Excluir esta questão?')) return;
     const { error } = await supabase.from('questions').update({ active: false }).eq('id', id);
     if (error) { toast.error(error.message); return; }
     toast.success('Questão removida!');
+    fetchData();
+  };
+
+  const handleCatSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const payload = { name: catForm.name, description: catForm.description || null, weight: parseFloat(catForm.weight) || 1 };
+    if (editingCat) {
+      const { error } = await supabase.from('categories').update(payload).eq('id', editingCat.id);
+      if (error) { toast.error(error.message); return; }
+      toast.success('Categoria atualizada!');
+    } else {
+      const { error } = await supabase.from('categories').insert({ ...payload, sort_order: categories.length });
+      if (error) { toast.error(error.message); return; }
+      toast.success('Categoria cadastrada!');
+    }
+    setCatOpen(false);
+    setEditingCat(null);
+    setCatForm({ name: '', description: '', weight: '1' });
+    fetchData();
+  };
+
+  const handleEditCat = (cat: Category) => {
+    setEditingCat(cat);
+    setCatForm({ name: cat.name, description: cat.description || '', weight: '1' });
+    setCatOpen(true);
+  };
+
+  const handleDeleteCat = async (id: string) => {
+    if (!confirm('Excluir esta categoria e todas suas questões?')) return;
+    const { error } = await supabase.from('categories').delete().eq('id', id);
+    if (error) { toast.error(error.message); return; }
+    toast.success('Categoria removida!');
     fetchData();
   };
 
@@ -95,10 +130,36 @@ const Questions = () => {
           <p className="text-muted-foreground text-sm mt-1">Banco de questões por categoria</p>
         </div>
         {isAdmin && (
-          <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditing(null); setForm({ text: '', description: '', category_id: '', weight: '1' }); } }}>
-            <DialogTrigger asChild>
-              <Button className="gap-2"><Plus className="h-4 w-4" />Nova Questão</Button>
-            </DialogTrigger>
+          <div className="flex gap-2">
+            <Dialog open={catOpen} onOpenChange={(v) => { setCatOpen(v); if (!v) { setEditingCat(null); setCatForm({ name: '', description: '', weight: '1' }); } }}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="gap-2"><Plus className="h-4 w-4" />Nova Categoria</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{editingCat ? 'Editar Categoria' : 'Nova Categoria'}</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleCatSubmit} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Nome *</Label>
+                    <Input value={catForm.name} onChange={e => setCatForm(f => ({ ...f, name: e.target.value }))} required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Descrição</Label>
+                    <Textarea value={catForm.description} onChange={e => setCatForm(f => ({ ...f, description: e.target.value }))} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Peso</Label>
+                    <Input type="number" min="0.1" step="0.1" value={catForm.weight} onChange={e => setCatForm(f => ({ ...f, weight: e.target.value }))} />
+                  </div>
+                  <Button type="submit" className="w-full">{editingCat ? 'Salvar' : 'Cadastrar'}</Button>
+                </form>
+              </DialogContent>
+            </Dialog>
+            <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditing(null); setForm({ text: '', description: '', category_id: '', weight: '1' }); } }}>
+              <DialogTrigger asChild>
+                <Button className="gap-2"><Plus className="h-4 w-4" />Nova Questão</Button>
+              </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>{editing ? 'Editar Questão' : 'Nova Questão'}</DialogTitle>
@@ -130,7 +191,8 @@ const Questions = () => {
                 <Button type="submit" className="w-full">{editing ? 'Salvar' : 'Cadastrar'}</Button>
               </form>
             </DialogContent>
-          </Dialog>
+            </Dialog>
+          </div>
         )}
       </div>
 
@@ -148,11 +210,17 @@ const Questions = () => {
             return (
               <AccordionItem key={cat.id} value={cat.id} className="glass-card border-none">
                 <AccordionTrigger className="px-6 py-4 hover:no-underline">
-                  <div className="flex items-center gap-3 text-left">
+                  <div className="flex items-center gap-3 text-left flex-1">
                     <span className="font-semibold">{cat.name}</span>
                     <span className="text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">
                       {catQuestions.length} questões
                     </span>
+                    {isAdmin && (
+                      <div className="flex gap-1 ml-auto mr-2" onClick={e => e.stopPropagation()}>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditCat(cat)}><Pencil className="h-3 w-3" /></Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteCat(cat.id)}><Trash2 className="h-3 w-3" /></Button>
+                      </div>
+                    )}
                   </div>
                 </AccordionTrigger>
                 <AccordionContent className="px-6 pb-4">
@@ -175,7 +243,7 @@ const Questions = () => {
                               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEdit(q)}>
                                 <Pencil className="h-3 w-3" />
                               </Button>
-                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDelete(q.id)}>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteQuestion(q.id)}>
                                 <Trash2 className="h-3 w-3" />
                               </Button>
                             </div>

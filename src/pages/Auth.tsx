@@ -14,6 +14,26 @@ const Auth = () => {
   const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const [forgotPassword, setForgotPassword] = useState(false);
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) { toast.error('Digite seu email.'); return; }
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (error) throw error;
+      toast.success('Email de recuperação enviado! Verifique sua caixa de entrada.');
+      setForgotPassword(false);
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -55,14 +75,34 @@ const Auth = () => {
 
         <Card className="glass-card">
           <CardHeader>
-            <CardTitle>{isLogin ? 'Entrar' : 'Criar Conta'}</CardTitle>
+            <CardTitle>{forgotPassword ? 'Recuperar Senha' : isLogin ? 'Entrar' : 'Criar Conta'}</CardTitle>
             <CardDescription>
-              {isLogin
+              {forgotPassword
+                ? 'Digite seu email para receber o link de recuperação'
+                : isLogin
                 ? 'Acesse sua conta para gerenciar avaliações'
                 : 'Crie sua conta para começar'}
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {forgotPassword ? (
+              <form onSubmit={handleForgotPassword} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="seu@email.com" required />
+                </div>
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+                  Enviar Link de Recuperação
+                </Button>
+                <div className="text-center">
+                  <button type="button" onClick={() => setForgotPassword(false)} className="text-sm text-primary hover:underline">
+                    Voltar ao login
+                  </button>
+                </div>
+              </form>
+            ) : (
+            <>
             <form onSubmit={handleSubmit} className="space-y-4">
               {!isLogin && (
                 <div className="space-y-2">
@@ -104,7 +144,12 @@ const Auth = () => {
                 {isLogin ? 'Entrar' : 'Criar Conta'}
               </Button>
             </form>
-            <div className="mt-4 text-center">
+            <div className="mt-4 text-center space-y-2">
+              {isLogin && (
+                <button type="button" onClick={() => setForgotPassword(true)} className="text-sm text-muted-foreground hover:text-primary hover:underline block mx-auto">
+                  Esqueceu sua senha?
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setIsLogin(!isLogin)}
@@ -113,6 +158,8 @@ const Auth = () => {
                 {isLogin ? 'Não tem conta? Cadastre-se' : 'Já tem conta? Faça login'}
               </button>
             </div>
+            </>
+            )}
           </CardContent>
         </Card>
       </div>

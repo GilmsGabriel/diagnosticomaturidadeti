@@ -75,7 +75,7 @@ const Dashboard = () => {
           <h1 className="text-2xl font-bold">Dashboard</h1>
           <p className="text-muted-foreground text-sm mt-1">Visão geral das avaliações de maturidade</p>
         </div>
-        <Button onClick={() => navigate('/assessments/new')} className="gap-2">
+        <Button onClick={() => navigate('/assessments')} className="gap-2">
           <Plus className="h-4 w-4" />
           Nova Avaliação
         </Button>
