@@ -157,7 +157,9 @@ const Questions = () => {
               </DialogContent>
             </Dialog>
             <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditing(null); setForm({ text: '', description: '', category_id: '', weight: '1' }); } }}>
-            </DialogTrigger>
+              <DialogTrigger asChild>
+                <Button className="gap-2"><Plus className="h-4 w-4" />Nova Questão</Button>
+              </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>{editing ? 'Editar Questão' : 'Nova Questão'}</DialogTitle>
