@@ -102,6 +102,7 @@ const Auth = () => {
                 </div>
               </form>
             ) : (
+            <>
             <form onSubmit={handleSubmit} className="space-y-4">
               {!isLogin && (
                 <div className="space-y-2">
@@ -157,6 +158,7 @@ const Auth = () => {
                 {isLogin ? 'Não tem conta? Cadastre-se' : 'Já tem conta? Faça login'}
               </button>
             </div>
+            </>
             )}
           </CardContent>
         </Card>
