@@ -11,6 +11,10 @@ import {
   Shield,
   Menu,
   X,
+  Users,
+  ClipboardList,
+  ShieldAlert,
+  BarChart3,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -19,6 +23,10 @@ const navItems = [
   { to: '/companies', label: 'Empresas', icon: Building2 },
   { to: '/questions', label: 'Questões', icon: FileQuestion },
   { to: '/assessments', label: 'Avaliações', icon: ClipboardCheck },
+  { to: '/raci', label: 'Matriz RACI', icon: Users },
+  { to: '/action-plans', label: 'Planos de Ação', icon: ClipboardList },
+  { to: '/risks', label: 'Riscos', icon: ShieldAlert },
+  { to: '/kpis', label: 'KPIs', icon: BarChart3 },
 ];
 
 export const AppLayout = ({ children }: { children: ReactNode }) => {
