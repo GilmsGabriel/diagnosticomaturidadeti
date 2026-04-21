@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Plus, Pencil, Trash2, FileQuestion } from 'lucide-react';
 import { toast } from 'sonner';
+import { getReadableError } from '@/lib/error-messages';
 
 interface Category {
   id: string;
@@ -60,11 +61,11 @@ const Questions = () => {
 
     if (editing) {
       const { error } = await supabase.from('questions').update(payload).eq('id', editing.id);
-      if (error) { toast.error(error.message); return; }
+      if (error) { toast.error(getReadableError(error)); return; }
       toast.success('Questão atualizada!');
     } else {
       const { error } = await supabase.from('questions').insert(payload);
-      if (error) { toast.error(error.message); return; }
+      if (error) { toast.error(getReadableError(error)); return; }
       toast.success('Questão cadastrada!');
     }
 
@@ -83,7 +84,7 @@ const Questions = () => {
   const handleDeleteQuestion = async (id: string) => {
     if (!confirm('Excluir esta questão?')) return;
     const { error } = await supabase.from('questions').update({ active: false }).eq('id', id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(getReadableError(error)); return; }
     toast.success('Questão removida!');
     fetchData();
   };
@@ -93,11 +94,11 @@ const Questions = () => {
     const payload = { name: catForm.name, description: catForm.description || null, weight: parseFloat(catForm.weight) || 1 };
     if (editingCat) {
       const { error } = await supabase.from('categories').update(payload).eq('id', editingCat.id);
-      if (error) { toast.error(error.message); return; }
+      if (error) { toast.error(getReadableError(error)); return; }
       toast.success('Categoria atualizada!');
     } else {
       const { error } = await supabase.from('categories').insert({ ...payload, sort_order: categories.length });
-      if (error) { toast.error(error.message); return; }
+      if (error) { toast.error(getReadableError(error)); return; }
       toast.success('Categoria cadastrada!');
     }
     setCatOpen(false);
@@ -115,7 +116,7 @@ const Questions = () => {
   const handleDeleteCat = async (id: string) => {
     if (!confirm('Excluir esta categoria e todas suas questões?')) return;
     const { error } = await supabase.from('categories').delete().eq('id', id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(getReadableError(error)); return; }
     toast.success('Categoria removida!');
     fetchData();
   };

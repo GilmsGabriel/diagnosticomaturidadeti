@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { ClipboardCheck, Plus, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
+import { getReadableError } from '@/lib/error-messages';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 const Assessments = () => {
@@ -36,7 +37,7 @@ const Assessments = () => {
       company_id: selectedCompany,
       assessor_id: user.id,
     }).select().single();
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(getReadableError(error)); return; }
     setOpen(false);
     navigate(`/assessments/${data.id}/evaluate`);
   };

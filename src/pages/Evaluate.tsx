@@ -14,6 +14,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { ChevronLeft, ChevronRight, Check, Loader2, Info, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
+import { getReadableError } from '@/lib/error-messages';
 import {
   COBIT_DOMAINS, ITIL_HINTS, CIA_BY_DOMAIN, extractCobitCode, getDomainForCode,
   type CobitDomainKey,
@@ -125,7 +126,7 @@ const Evaluate = () => {
       toast.success('Avaliação concluída!');
       navigate(`/assessments/${id}/report`);
     } catch (error: any) {
-      toast.error(error.message);
+      toast.error(getReadableError(error));
     } finally {
       setSaving(false);
     }

@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Plus, Pencil, Trash2, ClipboardList } from 'lucide-react';
 import { toast } from 'sonner';
+import { getReadableError } from '@/lib/error-messages';
 
 const statusLabels: Record<string, { label: string; className: string }> = {
   pending: { label: 'Pendente', className: 'bg-[hsl(var(--warning))]/20 text-[hsl(var(--warning))]' },
@@ -55,11 +56,11 @@ const ActionPlans = () => {
 
     if (editing) {
       const { error } = await supabase.from('action_plans').update(form).eq('id', editing.id);
-      if (error) { toast.error(error.message); return; }
+      if (error) { toast.error(getReadableError(error)); return; }
       toast.success('Plano atualizado!');
     } else {
       const { error } = await supabase.from('action_plans').insert({ ...form, company_id: selectedCompany, created_by: user.id });
-      if (error) { toast.error(error.message); return; }
+      if (error) { toast.error(getReadableError(error)); return; }
       toast.success('Plano criado!');
     }
     setOpen(false);
@@ -77,7 +78,7 @@ const ActionPlans = () => {
   const handleDelete = async (id: string) => {
     if (!confirm('Excluir este plano?')) return;
     const { error } = await supabase.from('action_plans').delete().eq('id', id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(getReadableError(error)); return; }
     toast.success('Plano removido!');
     fetchPlans();
   };

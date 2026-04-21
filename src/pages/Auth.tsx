@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Shield, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { getReadableError } from '@/lib/error-messages';
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -28,7 +29,7 @@ const Auth = () => {
       toast.success('Email de recuperação enviado! Verifique sua caixa de entrada.');
       setForgotPassword(false);
     } catch (error: any) {
-      toast.error(error.message);
+      toast.error(getReadableError(error));
     } finally {
       setLoading(false);
     }
@@ -56,7 +57,7 @@ const Auth = () => {
         toast.success('Conta criada! Verifique seu email para confirmar.');
       }
     } catch (error: any) {
-      toast.error(error.message);
+      toast.error(getReadableError(error));
     } finally {
       setLoading(false);
     }

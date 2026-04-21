@@ -11,6 +11,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Pencil, Trash2, BarChart3, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { toast } from 'sonner';
+import { getReadableError } from '@/lib/error-messages';
 
 const statusConfig: Record<string, { label: string; icon: any; className: string }> = {
   on_track: { label: 'No alvo', icon: TrendingUp, className: 'text-[hsl(var(--success))]' },
@@ -54,11 +55,11 @@ const Kpis = () => {
 
     if (editing) {
       const { error } = await supabase.from('kpis').update(payload).eq('id', editing.id);
-      if (error) { toast.error(error.message); return; }
+      if (error) { toast.error(getReadableError(error)); return; }
       toast.success('KPI atualizado!');
     } else {
       const { error } = await supabase.from('kpis').insert({ ...payload, company_id: selectedCompany, created_by: user.id });
-      if (error) { toast.error(error.message); return; }
+      if (error) { toast.error(getReadableError(error)); return; }
       toast.success('KPI cadastrado!');
     }
     setOpen(false);
@@ -76,7 +77,7 @@ const Kpis = () => {
   const handleDelete = async (id: string) => {
     if (!confirm('Excluir este KPI?')) return;
     const { error } = await supabase.from('kpis').delete().eq('id', id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(getReadableError(error)); return; }
     toast.success('KPI removido!');
     fetchKpis();
   };
