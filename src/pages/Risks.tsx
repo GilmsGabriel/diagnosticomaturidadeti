@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Plus, Pencil, Trash2, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
+import { getReadableError } from '@/lib/error-messages';
 
 const riskLevelLabels: Record<string, { label: string; className: string }> = {
   low: { label: 'Baixo', className: 'bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]' },
@@ -57,11 +58,11 @@ const Risks = () => {
 
     if (editing) {
       const { error } = await supabase.from('risks').update(payload).eq('id', editing.id);
-      if (error) { toast.error(error.message); return; }
+      if (error) { toast.error(getReadableError(error)); return; }
       toast.success('Risco atualizado!');
     } else {
       const { error } = await supabase.from('risks').insert({ ...payload, company_id: selectedCompany, created_by: user.id });
-      if (error) { toast.error(error.message); return; }
+      if (error) { toast.error(getReadableError(error)); return; }
       toast.success('Risco cadastrado!');
     }
     setOpen(false);
@@ -79,7 +80,7 @@ const Risks = () => {
   const handleDelete = async (id: string) => {
     if (!confirm('Excluir este risco?')) return;
     const { error } = await supabase.from('risks').delete().eq('id', id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(getReadableError(error)); return; }
     toast.success('Risco removido!');
     fetchRisks();
   };

@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Plus, Pencil, Trash2, Users } from 'lucide-react';
 import { toast } from 'sonner';
+import { getReadableError } from '@/lib/error-messages';
 
 interface RaciEntry {
   id: string;
@@ -53,11 +54,11 @@ const Raci = () => {
     if (editing) {
       const { created_by, ...updatePayload } = payload;
       const { error } = await supabase.from('raci_entries').update(updatePayload).eq('id', editing.id);
-      if (error) { toast.error(error.message); return; }
+      if (error) { toast.error(getReadableError(error)); return; }
       toast.success('Entrada RACI atualizada!');
     } else {
       const { error } = await supabase.from('raci_entries').insert(payload);
-      if (error) { toast.error(error.message); return; }
+      if (error) { toast.error(getReadableError(error)); return; }
       toast.success('Entrada RACI cadastrada!');
     }
     setOpen(false);
@@ -75,7 +76,7 @@ const Raci = () => {
   const handleDelete = async (id: string) => {
     if (!confirm('Excluir esta entrada?')) return;
     const { error } = await supabase.from('raci_entries').delete().eq('id', id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(getReadableError(error)); return; }
     toast.success('Entrada removida!');
     fetchEntries();
   };

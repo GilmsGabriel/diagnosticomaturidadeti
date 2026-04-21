@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Plus, Building2, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { getReadableError } from '@/lib/error-messages';
 
 interface Company {
   id: string;
@@ -45,7 +46,7 @@ const Companies = () => {
         contact_name: form.contact_name || null,
         contact_email: form.contact_email || null,
       }).eq('id', editing.id);
-      if (error) { toast.error(error.message); return; }
+      if (error) { toast.error(getReadableError(error)); return; }
       toast.success('Empresa atualizada!');
     } else {
       const { error } = await supabase.from('companies').insert({
@@ -56,7 +57,7 @@ const Companies = () => {
         contact_email: form.contact_email || null,
         created_by: user.id,
       });
-      if (error) { toast.error(error.message); return; }
+      if (error) { toast.error(getReadableError(error)); return; }
       toast.success('Empresa cadastrada!');
     }
 
@@ -81,7 +82,7 @@ const Companies = () => {
   const handleDelete = async (id: string) => {
     if (!confirm('Tem certeza que deseja excluir esta empresa?')) return;
     const { error } = await supabase.from('companies').delete().eq('id', id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(getReadableError(error)); return; }
     toast.success('Empresa excluída!');
     fetchCompanies();
   };

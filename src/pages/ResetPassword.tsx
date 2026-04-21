@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Shield, Loader2, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { getReadableError } from '@/lib/error-messages';
 import { useNavigate } from 'react-router-dom';
 
 const ResetPassword = () => {
@@ -41,7 +42,7 @@ const ResetPassword = () => {
       toast.success('Senha redefinida com sucesso!');
       setTimeout(() => navigate('/dashboard'), 2000);
     } catch (error: any) {
-      toast.error(error.message);
+      toast.error(getReadableError(error));
     } finally {
       setLoading(false);
     }
