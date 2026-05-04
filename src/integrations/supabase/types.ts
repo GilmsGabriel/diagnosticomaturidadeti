@@ -17,13 +17,22 @@ export type Database = {
       action_plans: {
         Row: {
           assessment_id: string | null
+          cia_indicators: string[]
+          cobit_domain: string
           company_id: string
+          confidence: number
           created_at: string
           created_by: string
+          due_date: string | null
+          effort: number
           how: string | null
           how_much: string | null
           id: string
+          impact_score: number
+          kanban_status: string
           priority: string
+          reach: number
+          rice_score: number | null
           status: string
           updated_at: string
           what: string
@@ -34,13 +43,22 @@ export type Database = {
         }
         Insert: {
           assessment_id?: string | null
+          cia_indicators?: string[]
+          cobit_domain?: string
           company_id: string
+          confidence?: number
           created_at?: string
           created_by: string
+          due_date?: string | null
+          effort?: number
           how?: string | null
           how_much?: string | null
           id?: string
+          impact_score?: number
+          kanban_status?: string
           priority?: string
+          reach?: number
+          rice_score?: number | null
           status?: string
           updated_at?: string
           what: string
@@ -51,13 +69,22 @@ export type Database = {
         }
         Update: {
           assessment_id?: string | null
+          cia_indicators?: string[]
+          cobit_domain?: string
           company_id?: string
+          confidence?: number
           created_at?: string
           created_by?: string
+          due_date?: string | null
+          effort?: number
           how?: string | null
           how_much?: string | null
           id?: string
+          impact_score?: number
+          kanban_status?: string
           priority?: string
+          reach?: number
+          rice_score?: number | null
           status?: string
           updated_at?: string
           what?: string
