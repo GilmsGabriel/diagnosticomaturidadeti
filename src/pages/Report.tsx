@@ -105,13 +105,21 @@ const Report = () => {
   }));
 
   const handlePdf = () => {
-    generateMaturityPdf({
-      companyName: (assessment.companies as any)?.name || 'Empresa',
-      assessmentDate: new Date(assessment.created_at).toLocaleDateString('pt-BR'),
-      result,
-      targets,
-      recommendations: recommendationsByLevel[result.level] || [],
-    });
+    (async () => {
+      const { data: plans } = await supabase
+        .from('action_plans')
+        .select('what, who, due_date, cobit_domain, kanban_status, rice_score, reach, impact_score, confidence, effort')
+        .eq('company_id', assessment.company_id)
+        .order('rice_score', { ascending: false });
+      generateMaturityPdf({
+        companyName: (assessment.companies as any)?.name || 'Empresa',
+        assessmentDate: new Date(assessment.created_at).toLocaleDateString('pt-BR'),
+        result,
+        targets,
+        recommendations: recommendationsByLevel[result.level] || [],
+        actionPlans: (plans as any[]) || [],
+      });
+    })();
   };
 
   return (
