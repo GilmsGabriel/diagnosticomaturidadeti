@@ -2,16 +2,30 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { MATURITY_BANDS, type MaturityResult } from './maturity-calculator';
 
+export interface PdfActionPlan {
+  what: string;
+  who?: string | null;
+  due_date?: string | null;
+  cobit_domain?: string | null;
+  kanban_status?: string | null;
+  rice_score?: number | null;
+  reach?: number | null;
+  impact_score?: number | null;
+  confidence?: number | null;
+  effort?: number | null;
+}
+
 interface PdfInput {
   companyName: string;
   assessmentDate: string;
   result: MaturityResult;
   targets: Record<string, number>;
   recommendations: string[];
+  actionPlans?: PdfActionPlan[];
 }
 
 export const generateMaturityPdf = ({
-  companyName, assessmentDate, result, targets, recommendations,
+  companyName, assessmentDate, result, targets, recommendations, actionPlans,
 }: PdfInput) => {
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
@@ -75,6 +89,36 @@ export const generateMaturityPdf = ({
     doc.text(lines, 60, y);
     y += lines.length * 14 + 10;
   });
+
+  // ===== PLANOS PRIORIZADOS (RICE) =====
+  if (actionPlans && actionPlans.length) {
+    doc.addPage();
+    doc.setFontSize(20).setFont('helvetica', 'bold').setTextColor(20).text('Planos de Ação Priorizados (RICE)', 40, 60);
+    doc.setFontSize(10).setFont('helvetica', 'normal').setTextColor(90)
+      .text('Ações ordenadas pelo maior ROI técnico (Reach × Impact × Confidence ÷ Effort).', 40, 80);
+
+    const sorted = [...actionPlans].sort((a, b) => (Number(b.rice_score) || 0) - (Number(a.rice_score) || 0));
+    autoTable(doc, {
+      startY: 100,
+      head: [['#', 'Ação', 'COBIT', 'Status', 'Resp.', 'Prazo', 'R', 'I', 'C%', 'E', 'RICE']],
+      body: sorted.map((p, i) => [
+        String(i + 1),
+        (p.what || '').slice(0, 60),
+        p.cobit_domain || '-',
+        p.kanban_status || '-',
+        p.who || '-',
+        p.due_date ? new Date(p.due_date).toLocaleDateString('pt-BR') : '-',
+        String(p.reach ?? '-'),
+        String(p.impact_score ?? '-'),
+        String(p.confidence ?? '-'),
+        String(p.effort ?? '-'),
+        Math.round(Number(p.rice_score) || 0).toLocaleString('pt-BR'),
+      ]),
+      headStyles: { fillColor: [37, 99, 235] },
+      styles: { fontSize: 8 },
+      columnStyles: { 1: { cellWidth: 160 }, 10: { fontStyle: 'bold', halign: 'right' } },
+    });
+  }
 
   // Footer
   const total = doc.getNumberOfPages();
