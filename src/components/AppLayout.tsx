@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import {
   LayoutDashboard, Building2, FileQuestion, ClipboardCheck, LogOut, Shield,
   Menu, X, Users, ClipboardList, ShieldAlert, BarChart3, Compass, Wrench,
+  FileDown,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -18,6 +19,7 @@ const navGroups: NavGroup[] = [
     items: [
       { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
       { to: '/companies', label: 'Empresas', icon: Building2 },
+      { to: '/export-pdti', label: 'Exportar PDTI', icon: FileDown },
     ],
   },
   {
