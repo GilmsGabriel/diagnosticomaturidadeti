@@ -18,6 +18,7 @@ import Raci from "./pages/Raci";
 import ActionPlans from "./pages/ActionPlans";
 import Risks from "./pages/Risks";
 import Kpis from "./pages/Kpis";
+import ExportPdti from "./pages/ExportPdti";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -57,6 +58,7 @@ const App = () => (
             <Route path="/action-plans" element={<ProtectedRoute><ActionPlans /></ProtectedRoute>} />
             <Route path="/risks" element={<ProtectedRoute><Risks /></ProtectedRoute>} />
             <Route path="/kpis" element={<ProtectedRoute><Kpis /></ProtectedRoute>} />
+            <Route path="/export-pdti" element={<ProtectedRoute><ExportPdti /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

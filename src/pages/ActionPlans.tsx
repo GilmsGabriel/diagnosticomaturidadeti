@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -11,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Plus, ClipboardList, Target } from 'lucide-react';
+import { Plus, ClipboardList, Target, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { getReadableError } from '@/lib/error-messages';
 import { KanbanBoard, type ActionPlan, type KanbanStatus } from '@/components/action-plans/KanbanBoard';
@@ -38,6 +39,7 @@ const emptyForm = {
 
 const ActionPlans = () => {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [plans, setPlans] = useState<ActionPlan[]>([]);
   const [companies, setCompanies] = useState<any[]>([]);
   const [assessments, setAssessments] = useState<any[]>([]);
@@ -45,6 +47,7 @@ const ActionPlans = () => {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [criticalRisks, setCriticalRisks] = useState<any[]>([]);
 
   useEffect(() => { (async () => {
     const { data: comps } = await supabase.from('companies').select('*').order('name');
@@ -58,8 +61,35 @@ const ActionPlans = () => {
     setPlans((data as any[]) || []);
     const { data: ass } = await supabase.from('assessments').select('id, created_at, status').eq('company_id', selectedCompany).order('created_at', { ascending: false });
     setAssessments(ass || []);
+    const { data: risks } = await supabase.from('risks').select('*').eq('company_id', selectedCompany);
+    setCriticalRisks(((risks as any[]) || []).filter(r => r.probability * r.impact >= 15));
   };
   useEffect(() => { fetchPlans(); }, [selectedCompany]);
+
+  const prefillFromRisk = (risk: any) => {
+    setEditing(null);
+    setForm({
+      ...emptyForm,
+      what: `Mitigar: ${risk.description}`,
+      why: `Risco crítico (P×I = ${risk.probability * risk.impact}). Categoria: ${risk.category || 'n/d'}.`,
+      how: risk.mitigation || 'Definir e executar plano de mitigação.',
+      priority: 'high',
+      cobit_domain: 'APO',
+      impact_score: 3,
+      confidence: 90,
+    });
+    setOpen(true);
+  };
+
+  // Open prefilled from ?risk_id=
+  useEffect(() => {
+    const riskId = searchParams.get('risk_id');
+    if (riskId && criticalRisks.length) {
+      const r = criticalRisks.find(x => x.id === riskId);
+      if (r) { prefillFromRisk(r); searchParams.delete('risk_id'); setSearchParams(searchParams, { replace: true }); }
+    }
+    // eslint-disable-next-line
+  }, [criticalRisks]);
 
   const riceScore = useMemo(() => {
     const e = Number(form.effort) || 1;
@@ -251,6 +281,29 @@ const ActionPlans = () => {
           <SelectContent>{companies.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
         </Select>
       </div>
+
+      {criticalRisks.length > 0 && (
+        <Card className="glass-card border-destructive/30">
+          <CardContent className="p-4 space-y-2">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <ShieldAlert className="h-4 w-4 text-destructive" />
+              Sugestões de plano — riscos críticos (P×I ≥ 15)
+            </div>
+            {criticalRisks.map(r => {
+              const linked = plans.some(p => (p.what || '').includes(r.description.slice(0, 20)));
+              return (
+                <div key={r.id} className="flex items-center justify-between gap-2 text-sm border-t border-border/50 pt-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="truncate"><strong>{r.description}</strong></p>
+                    <p className="text-xs text-muted-foreground">P {r.probability} · I {r.impact} · P×I {r.probability * r.impact}{linked && ' · plano já existe'}</p>
+                  </div>
+                  <Button size="sm" variant={linked ? 'ghost' : 'default'} onClick={() => prefillFromRisk(r)}>Gerar 5W2H</Button>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
 
       {plans.length === 0 ? (
         <Card className="glass-card">

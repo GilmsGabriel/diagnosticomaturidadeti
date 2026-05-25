@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, Pencil, Trash2, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { getReadableError } from '@/lib/error-messages';
+import { calculateMaturity } from '@/lib/maturity-calculator';
 
 const riskLevelLabels: Record<string, { label: string; className: string }> = {
   low: { label: 'Baixo', className: 'bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]' },
@@ -35,6 +36,7 @@ const Risks = () => {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
   const [form, setForm] = useState({ description: '', category: '', probability: '3', impact: '3', mitigation: '', status: 'identified' });
+  const [findings, setFindings] = useState<Array<{ id: string; name: string; score: number }>>([]);
 
   const fetchData = async () => {
     const { data: comps } = await supabase.from('companies').select('*').order('name');
@@ -46,6 +48,19 @@ const Risks = () => {
     if (!selectedCompany) return;
     const { data } = await supabase.from('risks').select('*').eq('company_id', selectedCompany).order('created_at', { ascending: false });
     setRisks((data as any[]) || []);
+    // Load maturity findings (categories with score <= 1.5)
+    const { data: ass } = await supabase.from('assessments').select('id').eq('company_id', selectedCompany).order('created_at', { ascending: false }).limit(1);
+    if (ass?.length) {
+      const [{ data: ans }, { data: cats }, { data: qs }] = await Promise.all([
+        supabase.from('assessment_answers').select('*').eq('assessment_id', ass[0].id),
+        supabase.from('categories').select('*').order('sort_order'),
+        supabase.from('questions').select('*').eq('active', true),
+      ]);
+      const r = calculateMaturity(cats || [], qs || [], ans || []);
+      setFindings(r.categories.filter(c => c.answeredCount > 0 && c.score <= 1.5).map(c => ({ id: c.id, name: c.name, score: c.score })));
+    } else {
+      setFindings([]);
+    }
   };
 
   useEffect(() => { fetchData(); }, []);
@@ -74,6 +89,23 @@ const Risks = () => {
   const handleEdit = (risk: any) => {
     setEditing(risk);
     setForm({ description: risk.description, category: risk.category || '', probability: String(risk.probability), impact: String(risk.impact), mitigation: risk.mitigation || '', status: risk.status });
+    setOpen(true);
+  };
+
+  const handleCreateFromFinding = (f: { name: string; score: number }) => {
+    if (risks.some(r => (r.description || '').includes(f.name))) {
+      toast.info('Já existe risco associado a este finding.');
+      return;
+    }
+    setEditing(null);
+    setForm({
+      description: `Baixa maturidade em ${f.name} (score ${f.score.toFixed(1)})`,
+      category: f.name,
+      probability: '4',
+      impact: '4',
+      mitigation: 'Plano estruturado de elevação de maturidade alinhado a COBIT/ITIL.',
+      status: 'identified',
+    });
     setOpen(true);
   };
 
@@ -165,6 +197,34 @@ const Risks = () => {
           </SelectContent>
         </Select>
       </div>
+
+      {findings.length > 0 && (
+        <Card className="glass-card border-destructive/30">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <ShieldAlert className="h-4 w-4 text-destructive" />
+              Findings de Maturidade — domínios críticos (score ≤ 1.5)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {findings.map(f => {
+              const hasRisk = risks.some(r => (r.description || '').includes(f.name) || (r.category || '') === f.name);
+              return (
+                <div key={f.id} className="flex items-center justify-between gap-2 text-sm border-b border-border/50 pb-2 last:border-0">
+                  <div>
+                    <span className="font-medium">{f.name}</span>
+                    <span className="text-muted-foreground ml-2">score {f.score.toFixed(1)}</span>
+                    {hasRisk && <Badge variant="outline" className="ml-2 text-[10px]">Risco já registrado</Badge>}
+                  </div>
+                  <Button size="sm" variant={hasRisk ? 'ghost' : 'default'} onClick={() => handleCreateFromFinding(f)}>
+                    Criar risco
+                  </Button>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Risk Matrix */}
       {risks.length > 0 && (
