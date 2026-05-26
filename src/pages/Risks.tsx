@@ -35,7 +35,12 @@ const Risks = () => {
   const [selectedCompany, setSelectedCompany] = useState('');
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
-  const [form, setForm] = useState({ description: '', category: '', probability: '3', impact: '3', mitigation: '', status: 'identified' });
+  const [form, setForm] = useState({
+    description: '', category: '', probability: '3', impact: '3',
+    mitigation: '', contingency: '', responsible: '',
+    risk_type: 'threat', response_strategy: 'mitigate',
+    status: 'identified',
+  });
   const [findings, setFindings] = useState<Array<{ id: string; name: string; score: number }>>([]);
 
   const fetchData = async () => {
@@ -69,7 +74,13 @@ const Risks = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
-    const payload = { description: form.description, category: form.category, probability: parseInt(form.probability), impact: parseInt(form.impact), mitigation: form.mitigation, status: form.status };
+    const payload = {
+      description: form.description, category: form.category,
+      probability: parseInt(form.probability), impact: parseInt(form.impact),
+      mitigation: form.mitigation, contingency: form.contingency, responsible: form.responsible,
+      risk_type: form.risk_type, response_strategy: form.response_strategy,
+      status: form.status,
+    };
 
     if (editing) {
       const { error } = await supabase.from('risks').update(payload).eq('id', editing.id);
@@ -82,13 +93,19 @@ const Risks = () => {
     }
     setOpen(false);
     setEditing(null);
-    setForm({ description: '', category: '', probability: '3', impact: '3', mitigation: '', status: 'identified' });
+    setForm({ description: '', category: '', probability: '3', impact: '3', mitigation: '', contingency: '', responsible: '', risk_type: 'threat', response_strategy: 'mitigate', status: 'identified' });
     fetchRisks();
   };
 
   const handleEdit = (risk: any) => {
     setEditing(risk);
-    setForm({ description: risk.description, category: risk.category || '', probability: String(risk.probability), impact: String(risk.impact), mitigation: risk.mitigation || '', status: risk.status });
+    setForm({
+      description: risk.description, category: risk.category || '',
+      probability: String(risk.probability), impact: String(risk.impact),
+      mitigation: risk.mitigation || '', contingency: risk.contingency || '', responsible: risk.responsible || '',
+      risk_type: risk.risk_type || 'threat', response_strategy: risk.response_strategy || 'mitigate',
+      status: risk.status,
+    });
     setOpen(true);
   };
 
@@ -104,6 +121,10 @@ const Risks = () => {
       probability: '4',
       impact: '4',
       mitigation: 'Plano estruturado de elevação de maturidade alinhado a COBIT/ITIL.',
+      contingency: '',
+      responsible: '',
+      risk_type: 'threat',
+      response_strategy: 'mitigate',
       status: 'identified',
     });
     setOpen(true);
@@ -132,7 +153,7 @@ const Risks = () => {
           <h1 className="text-2xl font-bold">Gestão de Riscos</h1>
           <p className="text-muted-foreground text-sm mt-1">Mapeamento e mitigação de riscos</p>
         </div>
-        <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditing(null); setForm({ description: '', category: '', probability: '3', impact: '3', mitigation: '', status: 'identified' }); } }}>
+        <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditing(null); setForm({ description: '', category: '', probability: '3', impact: '3', mitigation: '', contingency: '', responsible: '', risk_type: 'threat', response_strategy: 'mitigate', status: 'identified' }); } }}>
           <DialogTrigger asChild>
             <Button className="gap-2"><Plus className="h-4 w-4" />Novo Risco</Button>
           </DialogTrigger>
@@ -172,6 +193,40 @@ const Risks = () => {
               <div className="space-y-2">
                 <Label>Mitigação</Label>
                 <Textarea value={form.mitigation} onChange={e => setForm(f => ({ ...f, mitigation: e.target.value }))} placeholder="Ações de mitigação" rows={2} />
+              </div>
+              <div className="space-y-2">
+                <Label>Plano de Contingência</Label>
+                <Textarea value={form.contingency} onChange={e => setForm(f => ({ ...f, contingency: e.target.value }))} placeholder="O que fazer se o risco se materializar" rows={2} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Responsável</Label>
+                  <Input value={form.responsible} onChange={e => setForm(f => ({ ...f, responsible: e.target.value }))} placeholder="Ex: Gerente de TI" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Tipo</Label>
+                  <Select value={form.risk_type} onValueChange={v => setForm(f => ({ ...f, risk_type: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="threat">Ameaça</SelectItem>
+                      <SelectItem value="opportunity">Oportunidade</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Estratégia de Resposta</Label>
+                <Select value={form.response_strategy} onValueChange={v => setForm(f => ({ ...f, response_strategy: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="mitigate">Mitigar</SelectItem>
+                    <SelectItem value="transfer">Transferir</SelectItem>
+                    <SelectItem value="accept">Aceitar</SelectItem>
+                    <SelectItem value="avoid">Evitar</SelectItem>
+                    <SelectItem value="explore">Explorar (oportunidade)</SelectItem>
+                    <SelectItem value="enhance">Melhorar (oportunidade)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label>Status</Label>
