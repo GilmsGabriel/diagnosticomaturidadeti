@@ -35,6 +35,10 @@ const emptyForm = {
   cia_indicators: [] as CIAIndicator[],
   reach: 100, impact_score: 1, confidence: 80, effort: 1,
   assessment_id: null as string | null,
+  risk_id: null as string | null,
+  kpi_success: '',
+  department: '',
+  action_code: '',
 };
 
 const ActionPlans = () => {
@@ -77,6 +81,9 @@ const ActionPlans = () => {
       cobit_domain: 'APO',
       impact_score: 3,
       confidence: 90,
+      risk_id: risk.id,
+      who: risk.responsible || '',
+      kpi_success: '',
     });
     setOpen(true);
   };
@@ -113,6 +120,10 @@ const ActionPlans = () => {
       cobit_domain: form.cobit_domain, cia_indicators: form.cia_indicators,
       reach: form.reach, impact_score: form.impact_score, confidence: form.confidence, effort: form.effort,
       assessment_id: form.assessment_id || null,
+      risk_id: form.risk_id || null,
+      kpi_success: form.kpi_success || '',
+      department: form.department || '',
+      action_code: form.action_code || '',
     };
     if (editing) {
       const { error } = await supabase.from('action_plans').update(payload).eq('id', editing.id);
@@ -138,6 +149,10 @@ const ActionPlans = () => {
       reach: Number(p.reach ?? 100), impact_score: Number(p.impact_score ?? 1),
       confidence: Number(p.confidence ?? 80), effort: Number(p.effort ?? 1),
       assessment_id: p.assessment_id || null,
+      risk_id: p.risk_id || null,
+      kpi_success: p.kpi_success || '',
+      department: p.department || '',
+      action_code: p.action_code || '',
     });
     setOpen(true);
   };
@@ -185,17 +200,26 @@ const ActionPlans = () => {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2"><Label>Por quê? (Why)</Label><Textarea rows={2} value={form.why} onChange={e => setForm(f => ({ ...f, why: e.target.value }))} placeholder="Justificativa" /></div>
-                    <div className="space-y-2"><Label>Onde? (Where)</Label><Input value={form.where} onChange={e => setForm(f => ({ ...f, where: e.target.value }))} placeholder="Local / Departamento" /></div>
+                    <div className="space-y-2"><Label>Onde? (Where)</Label><Input value={form.where} onChange={e => setForm(f => ({ ...f, where: e.target.value }))} placeholder="Local" /></div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2"><Label>Quando? (When)</Label><Input value={form.when} onChange={e => setForm(f => ({ ...f, when: e.target.value }))} placeholder="Prazo descritivo" /></div>
-                    <div className="space-y-2"><Label>Data limite</Label><Input type="date" value={form.due_date} onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))} /></div>
+                    <div className="space-y-2"><Label>Data limite *</Label><Input type="date" value={form.due_date} onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))} /></div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2"><Label>Quem? (Who)</Label><Input value={form.who} onChange={e => setForm(f => ({ ...f, who: e.target.value }))} placeholder="Responsável" /></div>
+                    <div className="space-y-2"><Label>Quem? (Who) *</Label><Input value={form.who} onChange={e => setForm(f => ({ ...f, who: e.target.value }))} placeholder="Responsável" /></div>
                     <div className="space-y-2"><Label>Quanto custa? (How Much)</Label><Input value={form.how_much} onChange={e => setForm(f => ({ ...f, how_much: e.target.value }))} placeholder="R$ ..." /></div>
                   </div>
                   <div className="space-y-2"><Label>Como? (How)</Label><Textarea rows={2} value={form.how} onChange={e => setForm(f => ({ ...f, how: e.target.value }))} placeholder="Método de execução" /></div>
+                  <div className="space-y-2">
+                    <Label>KPI de sucesso</Label>
+                    <Textarea rows={2} value={form.kpi_success} onChange={e => setForm(f => ({ ...f, kpi_success: e.target.value }))}
+                      placeholder='Ex.: "100% dos backups com restore validado mensalmente; RPO ≤ 24h"' />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2"><Label>Departamento</Label><Input value={form.department} onChange={e => setForm(f => ({ ...f, department: e.target.value }))} placeholder="TI / Segurança" /></div>
+                    <div className="space-y-2"><Label>Código da Ação</Label><Input value={form.action_code} onChange={e => setForm(f => ({ ...f, action_code: e.target.value }))} placeholder="Ex.: 01" /></div>
+                  </div>
                 </TabsContent>
 
                 <TabsContent value="rice" className="space-y-5 pt-4">
@@ -283,26 +307,29 @@ const ActionPlans = () => {
       </div>
 
       {criticalRisks.length > 0 && (
-        <Card className="glass-card border-destructive/30">
-          <CardContent className="p-4 space-y-2">
-            <div className="flex items-center gap-2 text-sm font-medium">
-              <ShieldAlert className="h-4 w-4 text-destructive" />
-              Sugestões de plano — riscos críticos (P×I ≥ 15)
-            </div>
-            {criticalRisks.map(r => {
-              const linked = plans.some(p => (p.what || '').includes(r.description.slice(0, 20)));
-              return (
-                <div key={r.id} className="flex items-center justify-between gap-2 text-sm border-t border-border/50 pt-2">
-                  <div className="flex-1 min-w-0">
-                    <p className="truncate"><strong>{r.description}</strong></p>
-                    <p className="text-xs text-muted-foreground">P {r.probability} · I {r.impact} · P×I {r.probability * r.impact}{linked && ' · plano já existe'}</p>
-                  </div>
-                  <Button size="sm" variant={linked ? 'ghost' : 'default'} onClick={() => prefillFromRisk(r)}>Gerar 5W2H</Button>
+        (() => {
+          const pending = criticalRisks.filter(r => !plans.some((p: any) => p.risk_id === r.id));
+          if (!pending.length) return null;
+          return (
+            <Card className="glass-card border-destructive/30">
+              <CardContent className="p-4 space-y-2">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <ShieldAlert className="h-4 w-4 text-destructive" />
+                  Sugestões de plano — riscos críticos (P×I ≥ 15) sem 5W2H
                 </div>
-              );
-            })}
-          </CardContent>
-        </Card>
+                {pending.map(r => (
+                  <div key={r.id} className="flex items-center justify-between gap-2 text-sm border-t border-border/50 pt-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="truncate"><strong>{r.description}</strong></p>
+                      <p className="text-xs text-muted-foreground">P {r.probability} · I {r.impact} · P×I {r.probability * r.impact}</p>
+                    </div>
+                    <Button size="sm" onClick={() => prefillFromRisk(r)}>Gerar 5W2H</Button>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          );
+        })()
       )}
 
       {plans.length === 0 ? (
