@@ -25,7 +25,8 @@ const Companies = () => {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Company | null>(null);
-  const [form, setForm] = useState({ name: '', cnpj: '', sector: '', contact_name: '', contact_email: '' });
+  const emptyForm = { name: '', cnpj: '', sector: '', contact_name: '', contact_email: '', mission: '', vision: '', values: '', strategic_context: '', sponsor: '', plan_horizon: '' };
+  const [form, setForm] = useState(emptyForm);
 
   const fetchCompanies = async () => {
     const { data } = await supabase.from('companies').select('*').order('name');
@@ -38,36 +39,36 @@ const Companies = () => {
     e.preventDefault();
     if (!user) return;
 
+    const payload = {
+      name: form.name,
+      cnpj: form.cnpj || null,
+      sector: form.sector || null,
+      contact_name: form.contact_name || null,
+      contact_email: form.contact_email || null,
+      mission: form.mission || null,
+      vision: form.vision || null,
+      values: form.values || null,
+      strategic_context: form.strategic_context || null,
+      sponsor: form.sponsor || null,
+      plan_horizon: form.plan_horizon || null,
+    };
     if (editing) {
-      const { error } = await supabase.from('companies').update({
-        name: form.name,
-        cnpj: form.cnpj || null,
-        sector: form.sector || null,
-        contact_name: form.contact_name || null,
-        contact_email: form.contact_email || null,
-      }).eq('id', editing.id);
+      const { error } = await supabase.from('companies').update(payload).eq('id', editing.id);
       if (error) { toast.error(getReadableError(error)); return; }
       toast.success('Empresa atualizada!');
     } else {
-      const { error } = await supabase.from('companies').insert({
-        name: form.name,
-        cnpj: form.cnpj || null,
-        sector: form.sector || null,
-        contact_name: form.contact_name || null,
-        contact_email: form.contact_email || null,
-        created_by: user.id,
-      });
+      const { error } = await supabase.from('companies').insert({ ...payload, created_by: user.id });
       if (error) { toast.error(getReadableError(error)); return; }
       toast.success('Empresa cadastrada!');
     }
 
     setOpen(false);
     setEditing(null);
-    setForm({ name: '', cnpj: '', sector: '', contact_name: '', contact_email: '' });
+    setForm(emptyForm);
     fetchCompanies();
   };
 
-  const handleEdit = (company: Company) => {
+  const handleEdit = (company: any) => {
     setEditing(company);
     setForm({
       name: company.name,
@@ -75,6 +76,12 @@ const Companies = () => {
       sector: company.sector || '',
       contact_name: company.contact_name || '',
       contact_email: company.contact_email || '',
+      mission: company.mission || '',
+      vision: company.vision || '',
+      values: company.values || '',
+      strategic_context: company.strategic_context || '',
+      sponsor: company.sponsor || '',
+      plan_horizon: company.plan_horizon || '',
     });
     setOpen(true);
   };
@@ -94,11 +101,11 @@ const Companies = () => {
           <h1 className="text-2xl font-bold">Empresas</h1>
           <p className="text-muted-foreground text-sm mt-1">Gerencie as empresas clientes</p>
         </div>
-        <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditing(null); setForm({ name: '', cnpj: '', sector: '', contact_name: '', contact_email: '' }); } }}>
+        <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditing(null); setForm(emptyForm); } }}>
           <DialogTrigger asChild>
             <Button className="gap-2"><Plus className="h-4 w-4" />Nova Empresa</Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editing ? 'Editar Empresa' : 'Nova Empresa'}</DialogTitle>
             </DialogHeader>
@@ -125,6 +132,37 @@ const Companies = () => {
                 <div className="space-y-2">
                   <Label>Email Contato</Label>
                   <Input type="email" value={form.contact_email} onChange={e => setForm(f => ({ ...f, contact_email: e.target.value }))} />
+                </div>
+              </div>
+              <div className="pt-2 border-t border-border/50">
+                <p className="text-xs font-medium text-muted-foreground mb-3 uppercase">Referencial estratégico (usado no PDTI)</p>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Patrocinador Executivo</Label>
+                      <Input value={form.sponsor} onChange={e => setForm(f => ({ ...f, sponsor: e.target.value }))} placeholder="Ex.: CEO João Silva" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Horizonte do Plano</Label>
+                      <Input value={form.plan_horizon} onChange={e => setForm(f => ({ ...f, plan_horizon: e.target.value }))} placeholder="2026-2027" />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Contexto Estratégico / Drivers</Label>
+                    <textarea className="w-full min-h-[60px] rounded-md border border-input bg-background px-3 py-2 text-sm" value={form.strategic_context} onChange={e => setForm(f => ({ ...f, strategic_context: e.target.value }))} placeholder="Ex.: Internacionalização, IPO 2027, expansão e-commerce..." />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Missão da TI</Label>
+                    <textarea className="w-full min-h-[50px] rounded-md border border-input bg-background px-3 py-2 text-sm" value={form.mission} onChange={e => setForm(f => ({ ...f, mission: e.target.value }))} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Visão da TI</Label>
+                    <textarea className="w-full min-h-[50px] rounded-md border border-input bg-background px-3 py-2 text-sm" value={form.vision} onChange={e => setForm(f => ({ ...f, vision: e.target.value }))} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Valores da TI</Label>
+                    <textarea className="w-full min-h-[50px] rounded-md border border-input bg-background px-3 py-2 text-sm" value={form.values} onChange={e => setForm(f => ({ ...f, values: e.target.value }))} />
+                  </div>
                 </div>
               </div>
               <Button type="submit" className="w-full">{editing ? 'Salvar' : 'Cadastrar'}</Button>
