@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       action_plans: {
         Row: {
+          action_code: string | null
           assessment_id: string | null
           cia_indicators: string[]
           cobit_domain: string
@@ -23,6 +24,7 @@ export type Database = {
           confidence: number
           created_at: string
           created_by: string
+          department: string | null
           due_date: string | null
           effort: number
           how: string | null
@@ -30,9 +32,11 @@ export type Database = {
           id: string
           impact_score: number
           kanban_status: string
+          kpi_success: string | null
           priority: string
           reach: number
           rice_score: number | null
+          risk_id: string | null
           status: string
           updated_at: string
           what: string
@@ -42,6 +46,7 @@ export type Database = {
           why: string | null
         }
         Insert: {
+          action_code?: string | null
           assessment_id?: string | null
           cia_indicators?: string[]
           cobit_domain?: string
@@ -49,6 +54,7 @@ export type Database = {
           confidence?: number
           created_at?: string
           created_by: string
+          department?: string | null
           due_date?: string | null
           effort?: number
           how?: string | null
@@ -56,9 +62,11 @@ export type Database = {
           id?: string
           impact_score?: number
           kanban_status?: string
+          kpi_success?: string | null
           priority?: string
           reach?: number
           rice_score?: number | null
+          risk_id?: string | null
           status?: string
           updated_at?: string
           what: string
@@ -68,6 +76,7 @@ export type Database = {
           why?: string | null
         }
         Update: {
+          action_code?: string | null
           assessment_id?: string | null
           cia_indicators?: string[]
           cobit_domain?: string
@@ -75,6 +84,7 @@ export type Database = {
           confidence?: number
           created_at?: string
           created_by?: string
+          department?: string | null
           due_date?: string | null
           effort?: number
           how?: string | null
@@ -82,9 +92,11 @@ export type Database = {
           id?: string
           impact_score?: number
           kanban_status?: string
+          kpi_success?: string | null
           priority?: string
           reach?: number
           rice_score?: number | null
+          risk_id?: string | null
           status?: string
           updated_at?: string
           what?: string
@@ -234,9 +246,15 @@ export type Database = {
           created_at: string
           created_by: string
           id: string
+          mission: string | null
           name: string
+          plan_horizon: string | null
           sector: string | null
+          sponsor: string | null
+          strategic_context: string | null
           updated_at: string
+          values: string | null
+          vision: string | null
         }
         Insert: {
           cnpj?: string | null
@@ -245,9 +263,15 @@ export type Database = {
           created_at?: string
           created_by: string
           id?: string
+          mission?: string | null
           name: string
+          plan_horizon?: string | null
           sector?: string | null
+          sponsor?: string | null
+          strategic_context?: string | null
           updated_at?: string
+          values?: string | null
+          vision?: string | null
         }
         Update: {
           cnpj?: string | null
@@ -256,9 +280,15 @@ export type Database = {
           created_at?: string
           created_by?: string
           id?: string
+          mission?: string | null
           name?: string
+          plan_horizon?: string | null
           sector?: string | null
+          sponsor?: string | null
+          strategic_context?: string | null
           updated_at?: string
+          values?: string | null
+          vision?: string | null
         }
         Relationships: []
       }
@@ -274,6 +304,8 @@ export type Database = {
           name: string
           status: string
           target_value: number | null
+          target_year_1: number | null
+          target_year_2: number | null
           unit: string | null
           updated_at: string
         }
@@ -288,6 +320,8 @@ export type Database = {
           name: string
           status?: string
           target_value?: number | null
+          target_year_1?: number | null
+          target_year_2?: number | null
           unit?: string | null
           updated_at?: string
         }
@@ -302,6 +336,8 @@ export type Database = {
           name?: string
           status?: string
           target_value?: number | null
+          target_year_1?: number | null
+          target_year_2?: number | null
           unit?: string | null
           updated_at?: string
         }
@@ -431,6 +467,7 @@ export type Database = {
         Row: {
           category: string | null
           company_id: string
+          contingency: string | null
           created_at: string
           created_by: string
           description: string
@@ -438,13 +475,17 @@ export type Database = {
           impact: number
           mitigation: string | null
           probability: number
+          response_strategy: string
+          responsible: string | null
           risk_level: string | null
+          risk_type: string
           status: string
           updated_at: string
         }
         Insert: {
           category?: string | null
           company_id: string
+          contingency?: string | null
           created_at?: string
           created_by: string
           description: string
@@ -452,13 +493,17 @@ export type Database = {
           impact?: number
           mitigation?: string | null
           probability?: number
+          response_strategy?: string
+          responsible?: string | null
           risk_level?: string | null
+          risk_type?: string
           status?: string
           updated_at?: string
         }
         Update: {
           category?: string | null
           company_id?: string
+          contingency?: string | null
           created_at?: string
           created_by?: string
           description?: string
@@ -466,7 +511,10 @@ export type Database = {
           impact?: number
           mitigation?: string | null
           probability?: number
+          response_strategy?: string
+          responsible?: string | null
           risk_level?: string | null
+          risk_type?: string
           status?: string
           updated_at?: string
         }
@@ -479,6 +527,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      swot_entries: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string
+          description: string
+          id: string
+          sort_order: number
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by: string
+          description: string
+          id?: string
+          sort_order?: number
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string
+          description?: string
+          id?: string
+          sort_order?: number
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {
