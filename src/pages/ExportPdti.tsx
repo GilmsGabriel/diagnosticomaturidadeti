@@ -8,7 +8,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Download, Copy, FileText, CheckCircle2, XCircle, ShieldCheck, Lock, ExternalLink, FileDown, Loader2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { useState as useStateReact } from 'react';
 import { toast } from 'sonner';
 import { calculateMaturity, defaultTarget } from '@/lib/maturity-calculator';
 import { buildMarkdown, buildLatex, runQualityGate, type ExportData } from '@/lib/pdti-export';
