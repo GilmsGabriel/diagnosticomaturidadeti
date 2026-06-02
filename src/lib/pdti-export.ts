@@ -501,11 +501,13 @@ export const buildLatex = (data: ExportData): string => {
   o.push('{\\Huge\\bfseries\\color{pdtiblue} PLANO DIRETOR DE TECNOLOGIA\\\\[0.4em] DA INFORMAÇÃO\\par}');
   o.push('\\vspace{1.5cm}');
   o.push(`{\\LARGE\\bfseries PDTI ${horizon}\\par}`);
-  o.push('\\vspace{1cm}\\rule{0.6\\textwidth}{1.5pt}');
+  o.push('\\vspace{1cm}\\par');
+  o.push('{\\centering\\rule{0.6\\textwidth}{1.5pt}\\par}');
   o.push('\\vspace{1cm}');
   o.push(`{\\Large\\bfseries ${tex(c.name).toUpperCase()}\\par}`);
   if (c.sector) o.push(`\\vspace{0.3cm}{\\large\\itshape ${tex(c.sector)}\\par}`);
-  o.push('\\vspace{1cm}\\rule{0.6\\textwidth}{0.4pt}');
+  o.push('\\vspace{1cm}\\par');
+  o.push('{\\centering\\rule{0.6\\textwidth}{0.4pt}\\par}');
   o.push('\\vspace{1cm}');
   o.push('{\\small\\itshape Documento elaborado segundo metodologias\\\\ SISP v2.1, COBIT 5/2019, ITIL 4 e ISO/IEC 27001\\par}');
   o.push('\\vfill');

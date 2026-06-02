@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Download, Copy, FileText, CheckCircle2, XCircle, ShieldCheck, Lock, ExternalLink } from 'lucide-react';
+import { Download, Copy, FileText, CheckCircle2, XCircle, ShieldCheck, Lock, ExternalLink, FileDown, Loader2 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { calculateMaturity, defaultTarget } from '@/lib/maturity-calculator';
 import { buildMarkdown, buildLatex, runQualityGate, type ExportData } from '@/lib/pdti-export';
@@ -16,6 +17,8 @@ const ExportPdti = () => {
   const [selectedCompany, setSelectedCompany] = useState('');
   const [data, setData] = useState<ExportData | null>(null);
   const [loading, setLoading] = useState(false);
+  const [compiling, setCompiling] = useState(false);
+  const [errorLog, setErrorLog] = useState<string | null>(null);
 
   useEffect(() => { (async () => {
     const { data: comps } = await supabase.from('companies').select('*').order('name');
@@ -98,6 +101,46 @@ const ExportPdti = () => {
     if (!gate?.ok) { toast.error('Corrija as inconsistências do Quality Gate antes de copiar.'); return; }
     await navigator.clipboard.writeText(latex);
     toast.success('Código LaTeX copiado!');
+  };
+
+  const downloadPdf = async () => {
+    if (!data || !gate?.ok) return;
+    setCompiling(true);
+    const toastId = toast.loading('Compilando PDF a partir do LaTeX… isso pode levar até 30s.');
+    try {
+      const filename = `PDTI_${data.company.name.replace(/\s+/g, '_')}`;
+      const { data: res, error } = await supabase.functions.invoke('compile-latex', {
+        body: { tex: latex, filename },
+      });
+      if (error) {
+        // Try to extract log from error context
+        let log = '';
+        try {
+          const ctx = (error as any).context;
+          if (ctx && typeof ctx.json === 'function') {
+            const j = await ctx.json();
+            log = j?.log || j?.error || '';
+          }
+        } catch { /* ignore */ }
+        toast.error('Falha ao compilar PDF', { id: toastId });
+        setErrorLog(log || error.message || 'Erro desconhecido');
+        return;
+      }
+      // res is a Blob when content-type is application/pdf
+      const blob = res instanceof Blob ? res : new Blob([res as ArrayBuffer], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${filename}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('PDF compilado e baixado!', { id: toastId });
+    } catch (e: any) {
+      toast.error('Erro ao compilar PDF', { id: toastId });
+      setErrorLog(String(e?.message || e));
+    } finally {
+      setCompiling(false);
+    }
   };
 
   const disabled = !data || !gate?.ok;
@@ -200,9 +243,25 @@ const ExportPdti = () => {
             <Button onClick={downloadTex} disabled={disabled} title={gateTitle} variant="outline" className="gap-2">
               <Download className="h-4 w-4" /> Baixar .tex
             </Button>
+            <Button onClick={downloadPdf} disabled={disabled || compiling} title={gateTitle} className="gap-2">
+              {compiling ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
+              {compiling ? 'Compilando…' : 'Baixar PDF (compilado)'}
+            </Button>
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={!!errorLog} onOpenChange={(o) => !o && setErrorLog(null)}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Log da compilação LaTeX</DialogTitle>
+          </DialogHeader>
+          <Textarea readOnly value={errorLog || ''} rows={20} className="font-mono text-xs" />
+          <p className="text-xs text-muted-foreground">
+            Se o serviço de compilação estiver indisponível, baixe o .tex e compile no Overleaf.
+          </p>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
