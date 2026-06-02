@@ -13,40 +13,37 @@ interface CompileResult {
   error?: string
 }
 
-// latexonline.cc — POST application/x-www-form-urlencoded with `text` field.
-async function tryLatexOnline(tex: string): Promise<CompileResult> {
-  const body = new URLSearchParams({ text: tex, command: 'pdflatex' })
-  const r = await fetch('https://latexonline.cc/compile?command=pdflatex', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: body.toString(),
-  })
-  const ct = r.headers.get('content-type') || ''
-  if (r.ok && ct.includes('application/pdf')) {
-    return { ok: true, pdf: new Uint8Array(await r.arrayBuffer()) }
-  }
-  const text = await r.text()
-  return { ok: false, log: text.slice(0, 5000), error: `latexonline.cc HTTP ${r.status}` }
-}
-
-// texlive.net latexcgi — application/x-www-form-urlencoded, filename[]/filecontents[] arrays.
+// texlive.net latexcgi — multipart/form-data, filename[]/filecontents[] arrays.
+// Returns 301 → follow → 200 application/pdf.
 async function tryTexliveNet(tex: string): Promise<CompileResult> {
-  const body = new URLSearchParams()
-  body.append('filename[]', 'document.tex')
-  body.append('filecontents[]', tex)
-  body.append('return', 'pdf')
-  body.append('engine', 'pdflatex')
+  const fd = new FormData()
+  fd.append('filename[]', 'document.tex')
+  fd.append('filecontents[]', tex)
+  fd.append('return', 'pdf')
+  fd.append('engine', 'pdflatex')
   const r = await fetch('https://texlive.net/cgi-bin/latexcgi', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: body.toString(),
+    body: fd,
+    redirect: 'follow',
   })
   const ct = r.headers.get('content-type') || ''
   if (r.ok && ct.includes('application/pdf')) {
     return { ok: true, pdf: new Uint8Array(await r.arrayBuffer()) }
   }
   const text = await r.text()
-  return { ok: false, log: text.slice(0, 5000), error: `texlive.net HTTP ${r.status}` }
+  return { ok: false, log: text.slice(0, 8000), error: `texlive.net HTTP ${r.status}` }
+}
+
+// latexonline.cc — GET /compile?text=<urlencoded>&command=pdflatex.
+async function tryLatexOnline(tex: string): Promise<CompileResult> {
+  const url = `https://latexonline.cc/compile?command=pdflatex&text=${encodeURIComponent(tex)}`
+  const r = await fetch(url, { method: 'GET', redirect: 'follow' })
+  const ct = r.headers.get('content-type') || ''
+  if (r.ok && ct.includes('application/pdf')) {
+    return { ok: true, pdf: new Uint8Array(await r.arrayBuffer()) }
+  }
+  const text = await r.text()
+  return { ok: false, log: text.slice(0, 8000), error: `latexonline.cc HTTP ${r.status}` }
 }
 
 Deno.serve(async (req) => {
@@ -85,17 +82,18 @@ Deno.serve(async (req) => {
     }
 
     // Try primary, then fallback
+    // Primary: texlive.net (more reliable for large docs, no URL-length limit).
     let result: CompileResult
     try {
-      result = await tryLatexOnline(tex)
+      result = await tryTexliveNet(tex)
     } catch (e) {
       result = { ok: false, error: String(e) }
     }
     if (!result.ok) {
       try {
-        const fb = await tryTexliveNet(tex)
+        const fb = await tryLatexOnline(tex)
         if (fb.ok) result = fb
-        else result.log = (result.log || '') + '\n\n--- fallback texlive.net ---\n' + (fb.log || fb.error || '')
+        else result.log = (result.log || '') + '\n\n--- fallback latexonline.cc ---\n' + (fb.log || fb.error || '')
       } catch (e) {
         result.log = (result.log || '') + '\n\nfallback erro: ' + String(e)
       }
