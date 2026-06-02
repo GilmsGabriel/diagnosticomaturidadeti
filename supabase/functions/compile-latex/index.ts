@@ -13,40 +13,40 @@ interface CompileResult {
   error?: string
 }
 
-// Try latexonline.cc (accepts raw .tex via POST as multipart with `file` field)
+// latexonline.cc — POST application/x-www-form-urlencoded with `text` field.
 async function tryLatexOnline(tex: string): Promise<CompileResult> {
-  const fd = new FormData()
-  fd.append('file', new Blob([tex], { type: 'application/x-tex' }), 'main.tex')
-  fd.append('command', 'pdflatex')
-  const r = await fetch('https://latexonline.cc/data?command=pdflatex&target=main.tex', {
+  const body = new URLSearchParams({ text: tex, command: 'pdflatex' })
+  const r = await fetch('https://latexonline.cc/compile?command=pdflatex', {
     method: 'POST',
-    body: fd,
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString(),
   })
   const ct = r.headers.get('content-type') || ''
   if (r.ok && ct.includes('application/pdf')) {
     return { ok: true, pdf: new Uint8Array(await r.arrayBuffer()) }
   }
   const text = await r.text()
-  return { ok: false, log: text, error: `latexonline.cc HTTP ${r.status}` }
+  return { ok: false, log: text.slice(0, 5000), error: `latexonline.cc HTTP ${r.status}` }
 }
 
-// Fallback: texlive.net latexcgi (form-encoded)
+// texlive.net latexcgi — application/x-www-form-urlencoded, filename[]/filecontents[] arrays.
 async function tryTexliveNet(tex: string): Promise<CompileResult> {
-  const fd = new FormData()
-  fd.append('filename[]', 'main.tex')
-  fd.append('filecontents[]', tex)
-  fd.append('engine', 'pdflatex')
-  fd.append('return', 'pdf')
+  const body = new URLSearchParams()
+  body.append('filename[]', 'document.tex')
+  body.append('filecontents[]', tex)
+  body.append('return', 'pdf')
+  body.append('engine', 'pdflatex')
   const r = await fetch('https://texlive.net/cgi-bin/latexcgi', {
     method: 'POST',
-    body: fd,
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString(),
   })
   const ct = r.headers.get('content-type') || ''
   if (r.ok && ct.includes('application/pdf')) {
     return { ok: true, pdf: new Uint8Array(await r.arrayBuffer()) }
   }
   const text = await r.text()
-  return { ok: false, log: text, error: `texlive.net HTTP ${r.status}` }
+  return { ok: false, log: text.slice(0, 5000), error: `texlive.net HTTP ${r.status}` }
 }
 
 Deno.serve(async (req) => {
