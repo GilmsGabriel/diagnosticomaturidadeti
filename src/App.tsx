@@ -6,6 +6,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { AppLayout } from "@/components/AppLayout";
 import { LgpdConsentDialog } from "@/components/LgpdConsentDialog";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { ConfirmProvider } from "@/components/ConfirmDialog";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
@@ -43,8 +45,10 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <AuthProvider>
-          <Routes>
+        <ErrorBoundary>
+          <AuthProvider>
+            <ConfirmProvider>
+              <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/auth" element={<AuthRoute><Auth /></AuthRoute>} />
             <Route path="/reset-password" element={<ResetPassword />} />
@@ -60,8 +64,10 @@ const App = () => (
             <Route path="/kpis" element={<ProtectedRoute><Kpis /></ProtectedRoute>} />
             <Route path="/export-pdti" element={<ProtectedRoute><ExportPdti /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AuthProvider>
+              </Routes>
+            </ConfirmProvider>
+          </AuthProvider>
+        </ErrorBoundary>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
