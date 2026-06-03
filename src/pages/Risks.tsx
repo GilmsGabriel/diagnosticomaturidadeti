@@ -101,7 +101,7 @@ const Risks = () => {
       status: form.status,
     }, toast.error);
     if (!parsed) return;
-    const payload = parsed;
+    const payload: any = parsed;
 
     if (editing) {
       const { error } = await supabase.from('risks').update(payload).eq('id', editing.id);
