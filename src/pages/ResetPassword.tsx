@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Shield, Loader2, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { getReadableError } from '@/lib/error-messages';
+import { resetPasswordSchema, validateOrToast } from '@/lib/schemas';
 import { useNavigate } from 'react-router-dom';
 
 const ResetPassword = () => {
@@ -25,14 +26,8 @@ const ResetPassword = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password !== confirmPassword) {
-      toast.error('As senhas não coincidem.');
-      return;
-    }
-    if (password.length < 6) {
-      toast.error('A senha deve ter pelo menos 6 caracteres.');
-      return;
-    }
+    const parsed = validateOrToast(resetPasswordSchema, { password, confirmPassword }, toast.error);
+    if (!parsed) return;
 
     setLoading(true);
     try {
