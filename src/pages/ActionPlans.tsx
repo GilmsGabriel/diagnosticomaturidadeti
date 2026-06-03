@@ -17,6 +17,8 @@ import { toast } from 'sonner';
 import { getReadableError } from '@/lib/error-messages';
 import { KanbanBoard, type ActionPlan, type KanbanStatus } from '@/components/action-plans/KanbanBoard';
 import { COBIT_DOMAINS, type CIAIndicator } from '@/lib/cobit-framework';
+import { useConfirm } from '@/components/ConfirmDialog';
+import { actionPlanSchema, validateOrToast } from '@/lib/schemas';
 
 const KANBAN_LABELS: Record<KanbanStatus, string> = {
   backlog: 'Backlog',
@@ -43,6 +45,7 @@ const emptyForm = {
 
 const ActionPlans = () => {
   const { user } = useAuth();
+  const confirm = useConfirm();
   const [searchParams, setSearchParams] = useSearchParams();
   const [plans, setPlans] = useState<ActionPlan[]>([]);
   const [companies, setCompanies] = useState<any[]>([]);
@@ -113,6 +116,22 @@ const ActionPlans = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
+    const parsed = validateOrToast(actionPlanSchema, {
+      what: form.what, why: form.why, where: form.where, when: form.when,
+      who: form.who, how: form.how, how_much: form.how_much,
+      due_date: form.due_date,
+      priority: form.priority as any,
+      kanban_status: form.kanban_status,
+      cobit_domain: form.cobit_domain as any,
+      reach: Number(form.reach),
+      impact_score: Number(form.impact_score),
+      confidence: Number(form.confidence),
+      effort: Number(form.effort),
+      kpi_success: form.kpi_success,
+      department: form.department,
+      action_code: form.action_code,
+    }, toast.error);
+    if (!parsed) return;
     const payload: any = {
       what: form.what, why: form.why, where: form.where, when: form.when, who: form.who, how: form.how, how_much: form.how_much,
       due_date: form.due_date || null,
@@ -157,8 +176,14 @@ const ActionPlans = () => {
     setOpen(true);
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Excluir este plano?')) return;
+  const handleDelete = async (id: string, what: string) => {
+    const ok = await confirm({
+      title: 'Excluir plano de ação',
+      description: `Excluir "${what.slice(0, 80)}${what.length > 80 ? '…' : ''}"? Esta ação não pode ser desfeita.`,
+      confirmText: 'Excluir',
+      destructive: true,
+    });
+    if (!ok) return;
     const { error } = await supabase.from('action_plans').delete().eq('id', id);
     if (error) return toast.error(getReadableError(error));
     toast.success('Plano removido!'); fetchPlans();
