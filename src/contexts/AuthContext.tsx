@@ -30,40 +30,46 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [roles, setRoles] = useState<AppRole[]>([]);
 
-  const fetchRoles = async (userId: string) => {
-    const { data } = await supabase
+  const fetchRoles = async (userId: string): Promise<AppRole[]> => {
+    const { data, error } = await supabase
       .from('user_roles')
       .select('role')
       .eq('user_id', userId);
-    if (data) {
-      setRoles(data.map(r => r.role as AppRole));
+    if (error) {
+      // eslint-disable-next-line no-console
+      console.error('[auth] fetchRoles', error);
+      return [];
     }
+    return (data || []).map(r => r.role as AppRole);
   };
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          setTimeout(() => fetchRoles(session.user.id), 0);
-        } else {
-          setRoles([]);
-        }
-        setLoading(false);
+    let mounted = true;
+
+    const apply = async (s: Session | null) => {
+      if (!mounted) return;
+      setSession(s);
+      setUser(s?.user ?? null);
+      if (s?.user) {
+        // Defer the network call so we don't block the auth callback,
+        // but await it before clearing the loading flag so admin routes
+        // see the correct role on first render.
+        const r = await fetchRoles(s.user.id);
+        if (!mounted) return;
+        setRoles(r);
+      } else {
+        setRoles([]);
       }
+      if (mounted) setLoading(false);
+    };
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => { void apply(session); }
     );
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchRoles(session.user.id);
-      }
-      setLoading(false);
-    });
+    supabase.auth.getSession().then(({ data: { session } }) => { void apply(session); });
 
-    return () => subscription.unsubscribe();
+    return () => { mounted = false; subscription.unsubscribe(); };
   }, []);
 
   const signOut = async () => {
