@@ -42,23 +42,30 @@ const Evaluate = () => {
   const [answers, setAnswers] = useState<Record<string, Answer>>({});
   const [activeDomain, setActiveDomain] = useState<CobitDomainKey>('EDM');
   const [saving, setSaving] = useState(false);
-  const [existingAnswers, setExistingAnswers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
-      const [catRes, qRes, ansRes] = await Promise.all([
-        supabase.from('categories').select('*').order('sort_order'),
-        supabase.from('questions').select('*').eq('active', true).order('sort_order'),
-        supabase.from('assessment_answers').select('*').eq('assessment_id', id!),
-      ]);
-      setCategories(catRes.data || []);
-      setQuestions(qRes.data || []);
-      setExistingAnswers(ansRes.data || []);
-      const loaded: Record<string, Answer> = {};
-      (ansRes.data || []).forEach((a: any) => {
-        loaded[a.question_id] = { question_id: a.question_id, score: a.score, observation: a.observation || '' };
-      });
-      setAnswers(loaded);
+      try {
+        const [catRes, qRes, ansRes] = await Promise.all([
+          supabase.from('categories').select('*').order('sort_order'),
+          supabase.from('questions').select('*').eq('active', true).order('sort_order'),
+          supabase.from('assessment_answers').select('*').eq('assessment_id', id!),
+        ]);
+        const firstError = [catRes, qRes, ansRes].find(r => r.error)?.error;
+        if (firstError) throw firstError;
+        setCategories(catRes.data || []);
+        setQuestions(qRes.data || []);
+        const loaded: Record<string, Answer> = {};
+        (ansRes.data || []).forEach((a: any) => {
+          loaded[a.question_id] = { question_id: a.question_id, score: a.score, observation: a.observation || '' };
+        });
+        setAnswers(loaded);
+      } catch (e) {
+        toast.error(getReadableError(e));
+      } finally {
+        setLoading(false);
+      }
     };
     fetchData();
   }, [id]);
@@ -101,9 +108,17 @@ const Evaluate = () => {
 
     setSaving(true);
     try {
-      if (existingAnswers.length > 0) {
-        await supabase.from('assessment_answers').delete().eq('assessment_id', id!);
-      }
+      // Atomic per-question replace: delete only the rows we are about to write,
+      // then insert the new ones. Avoids the "wipe everything before insert" race
+      // that could lose answers if the insert fails.
+      const questionIds = answered.map(a => a.question_id);
+      const { error: delError } = await supabase
+        .from('assessment_answers')
+        .delete()
+        .eq('assessment_id', id!)
+        .in('question_id', questionIds);
+      if (delError) throw delError;
+
       const answerRows = answered.map(a => ({
         assessment_id: id!,
         question_id: a.question_id,

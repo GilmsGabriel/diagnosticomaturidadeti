@@ -9,6 +9,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Plus, Building2, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { getReadableError } from '@/lib/error-messages';
+import { useConfirm } from '@/components/ConfirmDialog';
+import { GridSkeleton } from '@/components/PageSkeleton';
+import { EmptyState } from '@/components/EmptyState';
+import { companySchema, validateOrToast } from '@/lib/schemas';
 
 interface Company {
   id: string;
@@ -22,35 +26,41 @@ interface Company {
 
 const Companies = () => {
   const { user } = useAuth();
+  const confirm = useConfirm();
   const [companies, setCompanies] = useState<Company[]>([]);
+  const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Company | null>(null);
   const emptyForm = { name: '', cnpj: '', sector: '', contact_name: '', contact_email: '', mission: '', vision: '', values: '', strategic_context: '', sponsor: '', plan_horizon: '' };
   const [form, setForm] = useState(emptyForm);
 
   const fetchCompanies = async () => {
-    const { data } = await supabase.from('companies').select('*').order('name');
+    const { data, error } = await supabase.from('companies').select('*').order('name');
+    if (error) { toast.error(getReadableError(error)); return; }
     setCompanies(data || []);
   };
 
-  useEffect(() => { fetchCompanies(); }, []);
+  useEffect(() => { (async () => { await fetchCompanies(); setLoading(false); })(); }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
 
+    const parsed = validateOrToast(companySchema, form, toast.error);
+    if (!parsed) return;
+
     const payload = {
-      name: form.name,
-      cnpj: form.cnpj || null,
-      sector: form.sector || null,
-      contact_name: form.contact_name || null,
-      contact_email: form.contact_email || null,
-      mission: form.mission || null,
-      vision: form.vision || null,
-      values: form.values || null,
-      strategic_context: form.strategic_context || null,
-      sponsor: form.sponsor || null,
-      plan_horizon: form.plan_horizon || null,
+      name: parsed.name,
+      cnpj: parsed.cnpj || null,
+      sector: parsed.sector || null,
+      contact_name: parsed.contact_name || null,
+      contact_email: parsed.contact_email || null,
+      mission: parsed.mission || null,
+      vision: parsed.vision || null,
+      values: parsed.values || null,
+      strategic_context: parsed.strategic_context || null,
+      sponsor: parsed.sponsor || null,
+      plan_horizon: parsed.plan_horizon || null,
     };
     if (editing) {
       const { error } = await supabase.from('companies').update(payload).eq('id', editing.id);
@@ -86,8 +96,14 @@ const Companies = () => {
     setOpen(true);
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Tem certeza que deseja excluir esta empresa?')) return;
+  const handleDelete = async (id: string, name: string) => {
+    const ok = await confirm({
+      title: 'Excluir empresa',
+      description: `Tem certeza que deseja excluir "${name}"? Esta ação não pode ser desfeita.`,
+      confirmText: 'Excluir',
+      destructive: true,
+    });
+    if (!ok) return;
     const { error } = await supabase.from('companies').delete().eq('id', id);
     if (error) { toast.error(getReadableError(error)); return; }
     toast.success('Empresa excluída!');
@@ -171,13 +187,14 @@ const Companies = () => {
         </Dialog>
       </div>
 
-      {companies.length === 0 ? (
-        <Card className="glass-card">
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <Building2 className="h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-muted-foreground">Nenhuma empresa cadastrada</p>
-          </CardContent>
-        </Card>
+      {loading ? (
+        <GridSkeleton items={3} />
+      ) : companies.length === 0 ? (
+        <EmptyState
+          icon={Building2}
+          title="Nenhuma empresa cadastrada"
+          description="Cadastre a primeira empresa para iniciar uma avaliação de maturidade."
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {companies.map(company => (
@@ -189,7 +206,7 @@ const Companies = () => {
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(company)}>
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(company.id)}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(company.id, company.name)}>
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>

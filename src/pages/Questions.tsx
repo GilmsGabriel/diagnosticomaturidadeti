@@ -12,6 +12,10 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Plus, Pencil, Trash2, FileQuestion } from 'lucide-react';
 import { toast } from 'sonner';
 import { getReadableError } from '@/lib/error-messages';
+import { useConfirm } from '@/components/ConfirmDialog';
+import { ListSkeleton } from '@/components/PageSkeleton';
+import { EmptyState } from '@/components/EmptyState';
+import { questionSchema, categorySchema, validateOrToast } from '@/lib/schemas';
 
 interface Category {
   id: string;
@@ -30,8 +34,10 @@ interface Question {
 
 const Questions = () => {
   const { isAdmin } = useAuth();
+  const confirm = useConfirm();
   const [categories, setCategories] = useState<Category[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [catOpen, setCatOpen] = useState(false);
   const [editing, setEditing] = useState<Question | null>(null);
@@ -44,19 +50,28 @@ const Questions = () => {
       supabase.from('categories').select('*').order('sort_order'),
       supabase.from('questions').select('*').eq('active', true).order('sort_order'),
     ]);
+    const firstError = [catRes, qRes].find(r => r.error)?.error;
+    if (firstError) { toast.error(getReadableError(firstError)); return; }
     setCategories(catRes.data || []);
     setQuestions(qRes.data || []);
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { (async () => { await fetchData(); setLoading(false); })(); }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const payload = {
+    const parsed = validateOrToast(questionSchema, {
       text: form.text,
-      description: form.description || null,
+      description: form.description,
       category_id: form.category_id,
       weight: parseFloat(form.weight) || 1,
+    }, toast.error);
+    if (!parsed) return;
+    const payload = {
+      text: parsed.text,
+      description: parsed.description || null,
+      category_id: parsed.category_id,
+      weight: parsed.weight,
     };
 
     if (editing) {
@@ -82,7 +97,13 @@ const Questions = () => {
   };
 
   const handleDeleteQuestion = async (id: string) => {
-    if (!confirm('Excluir esta questão?')) return;
+    const ok = await confirm({
+      title: 'Excluir questão',
+      description: 'A questão será desativada e não aparecerá em novas avaliações.',
+      confirmText: 'Excluir',
+      destructive: true,
+    });
+    if (!ok) return;
     const { error } = await supabase.from('questions').update({ active: false }).eq('id', id);
     if (error) { toast.error(getReadableError(error)); return; }
     toast.success('Questão removida!');
@@ -91,7 +112,13 @@ const Questions = () => {
 
   const handleCatSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const payload = { name: catForm.name, description: catForm.description || null, weight: parseFloat(catForm.weight) || 1 };
+    const parsed = validateOrToast(categorySchema, {
+      name: catForm.name,
+      description: catForm.description,
+      weight: parseFloat(catForm.weight) || 1,
+    }, toast.error);
+    if (!parsed) return;
+    const payload = { name: parsed.name, description: parsed.description || null, weight: parsed.weight };
     if (editingCat) {
       const { error } = await supabase.from('categories').update(payload).eq('id', editingCat.id);
       if (error) { toast.error(getReadableError(error)); return; }
@@ -113,8 +140,14 @@ const Questions = () => {
     setCatOpen(true);
   };
 
-  const handleDeleteCat = async (id: string) => {
-    if (!confirm('Excluir esta categoria e todas suas questões?')) return;
+  const handleDeleteCat = async (id: string, name: string) => {
+    const ok = await confirm({
+      title: 'Excluir categoria',
+      description: `Excluir a categoria "${name}" e todas as suas questões? Esta ação não pode ser desfeita.`,
+      confirmText: 'Excluir',
+      destructive: true,
+    });
+    if (!ok) return;
     const { error } = await supabase.from('categories').delete().eq('id', id);
     if (error) { toast.error(getReadableError(error)); return; }
     toast.success('Categoria removida!');
@@ -197,13 +230,14 @@ const Questions = () => {
         )}
       </div>
 
-      {categories.length === 0 ? (
-        <Card className="glass-card">
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <FileQuestion className="h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-muted-foreground">Nenhuma categoria encontrada</p>
-          </CardContent>
-        </Card>
+      {loading ? (
+        <ListSkeleton rows={3} />
+      ) : categories.length === 0 ? (
+        <EmptyState
+          icon={FileQuestion}
+          title="Nenhuma categoria cadastrada"
+          description="Cadastre categorias e questões para compor o banco de avaliação."
+        />
       ) : (
         <Accordion type="multiple" defaultValue={categories.map(c => c.id)} className="space-y-3">
           {categories.map(cat => {
@@ -219,7 +253,7 @@ const Questions = () => {
                     {isAdmin && (
                       <div className="flex gap-1 ml-auto mr-2" onClick={e => e.stopPropagation()}>
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditCat(cat)}><Pencil className="h-3 w-3" /></Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteCat(cat.id)}><Trash2 className="h-3 w-3" /></Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteCat(cat.id, cat.name)}><Trash2 className="h-3 w-3" /></Button>
                       </div>
                     )}
                   </div>

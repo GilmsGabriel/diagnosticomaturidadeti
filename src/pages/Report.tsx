@@ -11,6 +11,11 @@ import {
 } from 'recharts';
 import { MATURITY_BANDS, calculateMaturity, defaultTarget, getColorToken } from '@/lib/maturity-calculator';
 import { generateMaturityPdf } from '@/lib/pdf-report';
+import { toast } from 'sonner';
+import { getReadableError } from '@/lib/error-messages';
+import { EmptyState } from '@/components/EmptyState';
+import { FileQuestion } from 'lucide-react';
+import { formatDate, formatScore } from '@/lib/format';
 
 const recommendationsByLevel: Record<string, string[]> = {
   inicial: [
@@ -59,23 +64,36 @@ const Report = () => {
   const [answers, setAnswers] = useState<any[]>([]);
   const [targets, setTargets] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
-    const fetch = async () => {
-      const { data: a } = await supabase
-        .from('assessments').select('*, companies(name)').eq('id', id!).single();
-      const [aRes, cRes, qRes] = await Promise.all([
-        supabase.from('assessment_answers').select('*').eq('assessment_id', id!),
-        supabase.from('categories').select('*').order('sort_order'),
-        supabase.from('questions').select('*').eq('active', true),
-      ]);
-      setAssessment(a);
-      setAnswers(aRes.data || []);
-      setCategories(cRes.data || []);
-      setQuestions(qRes.data || []);
-      setLoading(false);
+    const run = async () => {
+      if (!id) { setNotFound(true); setLoading(false); return; }
+      try {
+        const { data: a, error: aErr } = await supabase
+          .from('assessments').select('*, companies(name)').eq('id', id).maybeSingle();
+        if (aErr) throw aErr;
+        if (!a) { setNotFound(true); setLoading(false); return; }
+
+        const [aRes, cRes, qRes] = await Promise.all([
+          supabase.from('assessment_answers').select('*').eq('assessment_id', id),
+          supabase.from('categories').select('*').order('sort_order'),
+          supabase.from('questions').select('*').eq('active', true),
+        ]);
+        const firstError = [aRes, cRes, qRes].find(r => r.error)?.error;
+        if (firstError) throw firstError;
+
+        setAssessment(a);
+        setAnswers(aRes.data || []);
+        setCategories(cRes.data || []);
+        setQuestions(qRes.data || []);
+      } catch (e) {
+        toast.error(getReadableError(e));
+      } finally {
+        setLoading(false);
+      }
     };
-    fetch();
+    run();
   }, [id]);
 
   const result = useMemo(
@@ -92,7 +110,27 @@ const Report = () => {
     }
   }, [result.categories]); // eslint-disable-line
 
-  if (loading || !assessment) return null;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+  if (notFound || !assessment) {
+    return (
+      <EmptyState
+        icon={FileQuestion}
+        title="Avaliação não encontrada"
+        description="A avaliação solicitada não existe ou foi removida."
+        action={
+          <Button variant="outline" onClick={() => navigate('/assessments')}>
+            Voltar para avaliações
+          </Button>
+        }
+      />
+    );
+  }
 
   const overallScore = result.overallScore;
   const band = MATURITY_BANDS.find(b => b.level === result.level)!;
@@ -113,7 +151,7 @@ const Report = () => {
         .order('rice_score', { ascending: false });
       generateMaturityPdf({
         companyName: (assessment.companies as any)?.name || 'Empresa',
-        assessmentDate: new Date(assessment.created_at).toLocaleDateString('pt-BR'),
+        assessmentDate: formatDate(assessment.created_at),
         result,
         targets,
         recommendations: recommendationsByLevel[result.level] || [],

@@ -13,6 +13,10 @@ import { Plus, Pencil, Trash2, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { getReadableError } from '@/lib/error-messages';
 import { calculateMaturity } from '@/lib/maturity-calculator';
+import { useConfirm } from '@/components/ConfirmDialog';
+import { ListSkeleton } from '@/components/PageSkeleton';
+import { EmptyState } from '@/components/EmptyState';
+import { riskSchema, validateOrToast } from '@/lib/schemas';
 
 const riskLevelLabels: Record<string, { label: string; className: string }> = {
   low: { label: 'Baixo', className: 'bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]' },
@@ -30,9 +34,11 @@ const statusLabels: Record<string, string> = {
 
 const Risks = () => {
   const { user } = useAuth();
+  const confirm = useConfirm();
   const [risks, setRisks] = useState<any[]>([]);
   const [companies, setCompanies] = useState<any[]>([]);
   const [selectedCompany, setSelectedCompany] = useState('');
+  const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
   const [form, setForm] = useState({
@@ -51,10 +57,13 @@ const Risks = () => {
 
   const fetchRisks = async () => {
     if (!selectedCompany) return;
-    const { data } = await supabase.from('risks').select('*').eq('company_id', selectedCompany).order('created_at', { ascending: false });
-    setRisks((data as any[]) || []);
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.from('risks').select('*').eq('company_id', selectedCompany).order('created_at', { ascending: false });
+      if (error) throw error;
+      setRisks((data as any[]) || []);
     // Load maturity findings (categories with score <= 1.5)
-    const { data: ass } = await supabase.from('assessments').select('id').eq('company_id', selectedCompany).order('created_at', { ascending: false }).limit(1);
+      const { data: ass } = await supabase.from('assessments').select('id').eq('company_id', selectedCompany).order('created_at', { ascending: false }).limit(1);
     if (ass?.length) {
       const [{ data: ans }, { data: cats }, { data: qs }] = await Promise.all([
         supabase.from('assessment_answers').select('*').eq('assessment_id', ass[0].id),
@@ -66,6 +75,11 @@ const Risks = () => {
     } else {
       setFindings([]);
     }
+    } catch (e) {
+      toast.error(getReadableError(e));
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { fetchData(); }, []);
@@ -74,13 +88,20 @@ const Risks = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
-    const payload = {
-      description: form.description, category: form.category,
-      probability: parseInt(form.probability), impact: parseInt(form.impact),
-      mitigation: form.mitigation, contingency: form.contingency, responsible: form.responsible,
-      risk_type: form.risk_type, response_strategy: form.response_strategy,
+    const parsed = validateOrToast(riskSchema, {
+      description: form.description,
+      category: form.category,
+      probability: parseInt(form.probability),
+      impact: parseInt(form.impact),
+      mitigation: form.mitigation,
+      contingency: form.contingency,
+      responsible: form.responsible,
+      risk_type: form.risk_type,
+      response_strategy: form.response_strategy,
       status: form.status,
-    };
+    }, toast.error);
+    if (!parsed) return;
+    const payload: any = parsed;
 
     if (editing) {
       const { error } = await supabase.from('risks').update(payload).eq('id', editing.id);
@@ -131,7 +152,13 @@ const Risks = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Excluir este risco?')) return;
+    const ok = await confirm({
+      title: 'Excluir risco',
+      description: 'Esta ação não pode ser desfeita.',
+      confirmText: 'Excluir',
+      destructive: true,
+    });
+    if (!ok) return;
     const { error } = await supabase.from('risks').delete().eq('id', id);
     if (error) { toast.error(getReadableError(error)); return; }
     toast.success('Risco removido!');
@@ -311,13 +338,14 @@ const Risks = () => {
         </Card>
       )}
 
-      {risks.length === 0 ? (
-        <Card className="glass-card">
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <ShieldAlert className="h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-muted-foreground">Nenhum risco cadastrado</p>
-          </CardContent>
-        </Card>
+      {loading ? (
+        <ListSkeleton rows={3} />
+      ) : risks.length === 0 ? (
+        <EmptyState
+          icon={ShieldAlert}
+          title="Nenhum risco cadastrado"
+          description="Mapeie ameaças e oportunidades para visualizá-las na matriz Probabilidade × Impacto."
+        />
       ) : (
         <div className="space-y-3">
           {risks.map(risk => (

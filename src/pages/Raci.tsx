@@ -11,6 +11,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Plus, Pencil, Trash2, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { getReadableError } from '@/lib/error-messages';
+import { useConfirm } from '@/components/ConfirmDialog';
+import { ListSkeleton } from '@/components/PageSkeleton';
+import { EmptyState } from '@/components/EmptyState';
+import { raciSchema, validateOrToast } from '@/lib/schemas';
 
 interface RaciEntry {
   id: string;
@@ -24,9 +28,11 @@ interface RaciEntry {
 
 const Raci = () => {
   const { user } = useAuth();
+  const confirm = useConfirm();
   const [entries, setEntries] = useState<RaciEntry[]>([]);
   const [companies, setCompanies] = useState<any[]>([]);
   const [selectedCompany, setSelectedCompany] = useState('');
+  const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<RaciEntry | null>(null);
   const [form, setForm] = useState({ process: '', responsible: '', accountable: '', consulted: '', informed: '', company_id: '' });
@@ -39,8 +45,11 @@ const Raci = () => {
 
   const fetchEntries = async () => {
     if (!selectedCompany) return;
-    const { data } = await supabase.from('raci_entries').select('*').eq('company_id', selectedCompany).order('created_at');
+    setLoading(true);
+    const { data, error } = await supabase.from('raci_entries').select('*').eq('company_id', selectedCompany).order('created_at');
+    if (error) { toast.error(getReadableError(error)); setLoading(false); return; }
     setEntries((data as any[]) || []);
+    setLoading(false);
   };
 
   useEffect(() => { fetchData(); }, []);
@@ -49,7 +58,15 @@ const Raci = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
-    const payload = { ...form, company_id: selectedCompany, created_by: user.id };
+    const parsed = validateOrToast(raciSchema, {
+      process: form.process,
+      responsible: form.responsible,
+      accountable: form.accountable,
+      consulted: form.consulted,
+      informed: form.informed,
+    }, toast.error);
+    if (!parsed) return;
+    const payload: any = { ...parsed, company_id: selectedCompany, created_by: user.id };
 
     if (editing) {
       const { created_by, ...updatePayload } = payload;
@@ -73,8 +90,14 @@ const Raci = () => {
     setOpen(true);
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Excluir esta entrada?')) return;
+  const handleDelete = async (id: string, process: string) => {
+    const ok = await confirm({
+      title: 'Excluir entrada RACI',
+      description: `Excluir o processo "${process}"? Esta ação não pode ser desfeita.`,
+      confirmText: 'Excluir',
+      destructive: true,
+    });
+    if (!ok) return;
     const { error } = await supabase.from('raci_entries').delete().eq('id', id);
     if (error) { toast.error(getReadableError(error)); return; }
     toast.success('Entrada removida!');
@@ -137,13 +160,14 @@ const Raci = () => {
         </Select>
       </div>
 
-      {entries.length === 0 ? (
-        <Card className="glass-card">
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <Users className="h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-muted-foreground">Nenhuma entrada RACI cadastrada</p>
-          </CardContent>
-        </Card>
+      {loading ? (
+        <ListSkeleton rows={3} />
+      ) : entries.length === 0 ? (
+        <EmptyState
+          icon={Users}
+          title="Nenhuma entrada RACI"
+          description="Defina responsabilidades por processo: Responsável, Aprovador, Consultado, Informado."
+        />
       ) : (
         <Card className="glass-card overflow-hidden">
           <CardContent className="p-0">
@@ -170,7 +194,7 @@ const Raci = () => {
                       <TableCell>
                         <div className="flex gap-1">
                           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEdit(entry)}><Pencil className="h-3 w-3" /></Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDelete(entry.id)}><Trash2 className="h-3 w-3" /></Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDelete(entry.id, entry.process)}><Trash2 className="h-3 w-3" /></Button>
                         </div>
                       </TableCell>
                     </TableRow>
