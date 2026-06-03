@@ -10,6 +10,9 @@ import { ClipboardCheck, Plus, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { getReadableError } from '@/lib/error-messages';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { ListSkeleton } from '@/components/PageSkeleton';
+import { EmptyState } from '@/components/EmptyState';
+import { formatDate, formatScore } from '@/lib/format';
 
 const Assessments = () => {
   const { user } = useAuth();
@@ -18,15 +21,24 @@ const Assessments = () => {
   const [companies, setCompanies] = useState<any[]>([]);
   const [selectedCompany, setSelectedCompany] = useState('');
   const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetch = async () => {
-      const [aRes, cRes] = await Promise.all([
-        supabase.from('assessments').select('*, companies(name)').order('created_at', { ascending: false }),
-        supabase.from('companies').select('*').order('name'),
-      ]);
-      setAssessments(aRes.data || []);
-      setCompanies(cRes.data || []);
+      try {
+        const [aRes, cRes] = await Promise.all([
+          supabase.from('assessments').select('*, companies(name)').order('created_at', { ascending: false }),
+          supabase.from('companies').select('*').order('name'),
+        ]);
+        const firstError = [aRes, cRes].find(r => r.error)?.error;
+        if (firstError) throw firstError;
+        setAssessments(aRes.data || []);
+        setCompanies(cRes.data || []);
+      } catch (e) {
+        toast.error(getReadableError(e));
+      } finally {
+        setLoading(false);
+      }
     };
     fetch();
   }, []);
@@ -36,8 +48,11 @@ const Assessments = () => {
     const { data, error } = await supabase.from('assessments').insert({
       company_id: selectedCompany,
       assessor_id: user.id,
-    }).select().single();
-    if (error) { toast.error(getReadableError(error)); return; }
+    }).select().maybeSingle();
+    if (error || !data) {
+      toast.error(getReadableError(error || new Error('Não foi possível criar a avaliação')));
+      return;
+    }
     setOpen(false);
     navigate(`/assessments/${data.id}/evaluate`);
   };
@@ -85,13 +100,14 @@ const Assessments = () => {
         </Dialog>
       </div>
 
-      {assessments.length === 0 ? (
-        <Card className="glass-card">
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <ClipboardCheck className="h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-muted-foreground">Nenhuma avaliação realizada</p>
-          </CardContent>
-        </Card>
+      {loading ? (
+        <ListSkeleton rows={3} />
+      ) : assessments.length === 0 ? (
+        <EmptyState
+          icon={ClipboardCheck}
+          title="Nenhuma avaliação realizada"
+          description="Cadastre uma empresa e clique em Nova Avaliação para começar."
+        />
       ) : (
         <div className="space-y-3">
           {assessments.map(a => (
@@ -100,10 +116,10 @@ const Assessments = () => {
               <CardContent className="flex items-center justify-between p-4">
                 <div>
                   <p className="font-medium">{(a.companies as any)?.name}</p>
-                  <p className="text-xs text-muted-foreground">{new Date(a.created_at).toLocaleDateString('pt-BR')}</p>
+                  <p className="text-xs text-muted-foreground">{formatDate(a.created_at)}</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  {a.overall_score && <span className="text-lg font-bold">{Number(a.overall_score).toFixed(1)}</span>}
+                  {a.overall_score && <span className="text-lg font-bold">{formatScore(a.overall_score)}</span>}
                   {getStatusBadge(a.status)}
                   <ArrowRight className="h-4 w-4 text-muted-foreground" />
                 </div>
