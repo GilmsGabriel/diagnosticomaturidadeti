@@ -4,37 +4,44 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Building2, ClipboardCheck, FileQuestion, TrendingUp, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
+import { getReadableError } from '@/lib/error-messages';
+import { StatsSkeleton, ListSkeleton } from '@/components/PageSkeleton';
+import { formatDate, formatScore } from '@/lib/format';
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const [stats, setStats] = useState({ companies: 0, assessments: 0, questions: 0, avgScore: 0 });
   const [recentAssessments, setRecentAssessments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchStats = async () => {
-      const [companies, assessments, questions] = await Promise.all([
-        supabase.from('companies').select('id', { count: 'exact', head: true }),
-        supabase.from('assessments').select('id, overall_score', { count: 'exact' }),
-        supabase.from('questions').select('id', { count: 'exact', head: true }),
-      ]);
+      try {
+        const [companies, assessments, questions, recent] = await Promise.all([
+          supabase.from('companies').select('id', { count: 'exact', head: true }),
+          supabase.from('assessments').select('id, overall_score', { count: 'exact' }),
+          supabase.from('questions').select('id', { count: 'exact', head: true }),
+          supabase.from('assessments').select('*, companies(name)').order('created_at', { ascending: false }).limit(5),
+        ]);
+        const firstError = [companies, assessments, questions, recent].find(r => r.error)?.error;
+        if (firstError) throw firstError;
 
-      const scores = assessments.data?.filter(a => a.overall_score).map(a => a.overall_score as number) || [];
-      const avg = scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
+        const scores = assessments.data?.filter(a => a.overall_score).map(a => a.overall_score as number) || [];
+        const avg = scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
 
-      setStats({
-        companies: companies.count || 0,
-        assessments: assessments.count || 0,
-        questions: questions.count || 0,
-        avgScore: Math.round(avg * 10) / 10,
-      });
-
-      // Recent assessments with company name
-      const { data: recent } = await supabase
-        .from('assessments')
-        .select('*, companies(name)')
-        .order('created_at', { ascending: false })
-        .limit(5);
-      setRecentAssessments(recent || []);
+        setStats({
+          companies: companies.count || 0,
+          assessments: assessments.count || 0,
+          questions: questions.count || 0,
+          avgScore: Math.round(avg * 10) / 10,
+        });
+        setRecentAssessments(recent.data || []);
+      } catch (e) {
+        toast.error(getReadableError(e));
+      } finally {
+        setLoading(false);
+      }
     };
     fetchStats();
   }, []);
@@ -82,7 +89,7 @@ const Dashboard = () => {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {statCards.map(card => (
+        {loading ? <StatsSkeleton /> : statCards.map(card => (
           <Card key={card.label} className="glass-card">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -102,7 +109,9 @@ const Dashboard = () => {
           <CardTitle className="text-lg">Avaliações Recentes</CardTitle>
         </CardHeader>
         <CardContent>
-          {recentAssessments.length === 0 ? (
+          {loading ? (
+            <ListSkeleton rows={3} />
+          ) : recentAssessments.length === 0 ? (
             <p className="text-muted-foreground text-sm text-center py-8">
               Nenhuma avaliação realizada ainda.
             </p>
@@ -117,12 +126,12 @@ const Dashboard = () => {
                   <div>
                     <p className="font-medium text-sm">{(a.companies as any)?.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {new Date(a.created_at).toLocaleDateString('pt-BR')}
+                      {formatDate(a.created_at)}
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
                     {a.overall_score && (
-                      <span className="text-lg font-bold">{a.overall_score.toFixed(1)}</span>
+                      <span className="text-lg font-bold">{formatScore(a.overall_score)}</span>
                     )}
                     {a.maturity_level && (
                       <span className={`score-badge text-xs ${getMaturityColor(a.maturity_level)} text-background`}>
