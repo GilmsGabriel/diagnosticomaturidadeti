@@ -11,6 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { toast } from 'sonner';
 import { calculateMaturity, defaultTarget } from '@/lib/maturity-calculator';
 import { buildMarkdown, buildLatex, runQualityGate, type ExportData } from '@/lib/pdti-export';
+import { safeFilename } from '@/lib/format';
+import { getReadableError } from '@/lib/error-messages';
 
 const ExportPdti = () => {
   const [companies, setCompanies] = useState<any[]>([]);
@@ -21,7 +23,8 @@ const ExportPdti = () => {
   const [errorLog, setErrorLog] = useState<string | null>(null);
 
   useEffect(() => { (async () => {
-    const { data: comps } = await supabase.from('companies').select('*').order('name');
+    const { data: comps, error } = await supabase.from('companies').select('*').order('name');
+    if (error) { toast.error(getReadableError(error)); return; }
     setCompanies(comps || []);
     if (comps?.length) setSelectedCompany(comps[0].id);
   })(); }, []);
@@ -33,29 +36,34 @@ const ExportPdti = () => {
     const company = companies.find(c => c.id === selectedCompany);
     if (!company) { setLoading(false); return; }
 
-    const [{ data: ass }, { data: risks }, { data: plans }, { data: kpis }, { data: raci }, { data: cats }, { data: qs }, { data: swot }] = await Promise.all([
-      supabase.from('assessments').select('*').eq('company_id', selectedCompany).order('created_at', { ascending: false }).limit(1),
-      supabase.from('risks').select('*').eq('company_id', selectedCompany),
-      supabase.from('action_plans').select('*').eq('company_id', selectedCompany).order('rice_score', { ascending: false }),
-      supabase.from('kpis').select('*').eq('company_id', selectedCompany),
-      supabase.from('raci_entries').select('*').eq('company_id', selectedCompany),
-      supabase.from('categories').select('*').order('sort_order'),
-      supabase.from('questions').select('*').eq('active', true),
-      supabase.from('swot_entries').select('*').eq('company_id', selectedCompany).order('sort_order'),
-    ]);
+    try {
+      const results = await Promise.all([
+        supabase.from('assessments').select('*').eq('company_id', selectedCompany).order('created_at', { ascending: false }).limit(1),
+        supabase.from('risks').select('*').eq('company_id', selectedCompany),
+        supabase.from('action_plans').select('*').eq('company_id', selectedCompany).order('rice_score', { ascending: false }),
+        supabase.from('kpis').select('*').eq('company_id', selectedCompany),
+        supabase.from('raci_entries').select('*').eq('company_id', selectedCompany),
+        supabase.from('categories').select('*').order('sort_order'),
+        supabase.from('questions').select('*').eq('active', true),
+        supabase.from('swot_entries').select('*').eq('company_id', selectedCompany).order('sort_order'),
+      ]);
+      const firstError = results.find(r => r.error)?.error;
+      if (firstError) throw firstError;
+      const [{ data: ass }, { data: risks }, { data: plans }, { data: kpis }, { data: raci }, { data: cats }, { data: qs }, { data: swot }] = results;
 
-    let maturity = null;
-    let assessmentDate: string | undefined;
-    const targets: Record<string, number> = {};
-    if (ass?.length) {
-      const a = ass[0];
-      assessmentDate = new Date(a.created_at).toLocaleDateString('pt-BR');
-      const { data: ans } = await supabase.from('assessment_answers').select('*').eq('assessment_id', a.id);
-      maturity = calculateMaturity(cats || [], qs || [], ans || []);
-      maturity.categories.forEach(c => { targets[c.id] = defaultTarget(c.score); });
-    }
+      let maturity = null;
+      let assessmentDate: string | undefined;
+      const targets: Record<string, number> = {};
+      if (ass?.length) {
+        const a = ass[0];
+        assessmentDate = new Date(a.created_at).toLocaleDateString('pt-BR');
+        const { data: ans, error: ansErr } = await supabase.from('assessment_answers').select('*').eq('assessment_id', a.id);
+        if (ansErr) throw ansErr;
+        maturity = calculateMaturity(cats || [], qs || [], ans || []);
+        maturity.categories.forEach(c => { targets[c.id] = defaultTarget(c.score); });
+      }
 
-    setData({
+      setData({
       company,
       assessmentDate,
       maturity,
@@ -65,8 +73,13 @@ const ExportPdti = () => {
       kpis: (kpis as any[]) || [],
       raci: (raci as any[]) || [],
       swot: (swot as any[]) || [],
-    });
-    setLoading(false);
+      });
+    } catch (e) {
+      toast.error(getReadableError(e));
+      setData(null);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const gate = useMemo(() => (data ? runQualityGate(data) : null), [data]);
@@ -79,7 +92,7 @@ const ExportPdti = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `PDTI_${data.company.name.replace(/\s+/g, '_')}.md`;
+    a.download = `PDTI_${safeFilename(data.company.name)}.md`;
     a.click();
     URL.revokeObjectURL(url);
     toast.success('Markdown baixado!');
@@ -91,7 +104,7 @@ const ExportPdti = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `PDTI_${data.company.name.replace(/\s+/g, '_')}.tex`;
+    a.download = `PDTI_${safeFilename(data.company.name)}.tex`;
     a.click();
     URL.revokeObjectURL(url);
     toast.success('Arquivo .tex baixado!');
@@ -108,32 +121,47 @@ const ExportPdti = () => {
     setCompiling(true);
     const toastId = toast.loading('Compilando PDF a partir do LaTeX… isso pode levar até 30s.');
     try {
-      const filename = `PDTI_${data.company.name.replace(/\s+/g, '_')}`;
-      const { data: res, error } = await supabase.functions.invoke('compile-latex', {
-        body: { tex: latex, filename },
+      const filename = `PDTI_${safeFilename(data.company.name)}`;
+      const { data: { session } } = await supabase.auth.getSession();
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/compile-latex`;
+      const r = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token ?? ''}`,
+          'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({ tex: latex, filename }),
       });
-      if (error) {
-        // Try to extract log from error context
+
+      if (!r.ok) {
         let log = '';
         try {
-          const ctx = (error as any).context;
-          if (ctx && typeof ctx.json === 'function') {
-            const j = await ctx.json();
-            log = j?.log || j?.error || '';
-          }
-        } catch { /* ignore */ }
+          const j = await r.json();
+          log = j?.log || j?.error || `HTTP ${r.status}`;
+        } catch {
+          log = `HTTP ${r.status}`;
+        }
         toast.error('Falha ao compilar PDF', { id: toastId });
-        setErrorLog(log || error.message || 'Erro desconhecido');
+        setErrorLog(log);
         return;
       }
-      // res is a Blob when content-type is application/pdf
-      const blob = res instanceof Blob ? res : new Blob([res as ArrayBuffer], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
+
+      const blob = await r.blob();
+      if (blob.size < 1000) {
+        toast.error('PDF retornado está vazio', { id: toastId });
+        setErrorLog('O serviço retornou um arquivo vazio ou inválido. Tente novamente em alguns instantes ou baixe o .tex e compile no Overleaf.');
+        return;
+      }
+
+      const dlUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url;
+      a.href = dlUrl;
       a.download = `${filename}.pdf`;
+      document.body.appendChild(a);
       a.click();
-      URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      URL.revokeObjectURL(dlUrl);
       toast.success('PDF compilado e baixado!', { id: toastId });
     } catch (e: any) {
       toast.error('Erro ao compilar PDF', { id: toastId });
