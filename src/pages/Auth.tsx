@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Shield, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { getReadableError } from '@/lib/error-messages';
+import { loginSchema, signupSchema, validateOrToast } from '@/lib/schemas';
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -19,7 +20,8 @@ const Auth = () => {
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email) { toast.error('Digite seu email.'); return; }
+    const r = z.string().trim().email({ message: 'E-mail inválido' }).safeParse(email);
+    if (!r.success) { toast.error(r.error.errors[0].message); return; }
     setLoading(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -37,6 +39,13 @@ const Auth = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLogin) {
+      const parsed = validateOrToast(loginSchema, { email, password }, toast.error);
+      if (!parsed) return;
+    } else {
+      const parsed = validateOrToast(signupSchema, { email, password, fullName }, toast.error);
+      if (!parsed) return;
+    }
     setLoading(true);
 
     try {
