@@ -365,7 +365,7 @@ const ActionPlans = () => {
           </CardContent>
         </Card>
       ) : (
-        <KanbanBoard plans={plans} onMove={handleMove} onEdit={handleEdit} onDelete={handleDelete} />
+        <KanbanBoard plans={plans} onMove={handleMove} onEdit={handleEdit} onDelete={(id) => handleDelete(id, plans.find(p => p.id === id)?.what || 'plano')} />
       )}
     </div>
   );
