@@ -8,6 +8,7 @@ import { Shield, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { getReadableError } from '@/lib/error-messages';
 import { loginSchema, signupSchema, validateOrToast } from '@/lib/schemas';
+import { z } from 'zod';
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
