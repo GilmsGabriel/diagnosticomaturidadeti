@@ -1,55 +1,85 @@
-## 1. Corrigir bug das linhas divisórias na capa (LaTeX)
+## Objetivo
 
-**Causa:** em `src/lib/pdti-export.ts` (linhas 504 e 508), `\vspace{...}\rule{...}` aparecem sem `\par` separando, então o `\rule` é tratado como conteúdo inline da linha anterior — em `\centering` isso quebra o alinhamento e faz a régua "escapar" da centralização (aparece deslocada/duplicada visualmente quando combinada com o `\vspace` seguinte).
+Elevar a confiabilidade percebida do app a nível profissional, eliminando bugs de consistência, telas brancas, erros silenciosos e comportamentos imprevisíveis — sem mudar funcionalidades.
 
-**Correção:** isolar cada régua em seu próprio parágrafo, no padrão:
+## Achados da auditoria (priorizados)
 
+### Bugs concretos
+1. **`ExportPdti.downloadPdf`** voltou a usar `supabase.functions.invoke`, que não retorna binário corretamente. O toast diz "PDF compilado e baixado" mas o arquivo sai vazio. **Já corrigido antes; regressão.**
+2. **`Report.tsx`** usa `.single()` em assessment — se a avaliação for excluída ou o ID for inválido, a página quebra em vez de mostrar "não encontrada".
+3. **`Evaluate.handleFinish`** faz `DELETE` das respostas antigas e depois `INSERT` das novas sem transação. Se o insert falhar (rede, RLS), o usuário perde todas as respostas salvas.
+4. **`Dashboard`/`ExportPdti`/`Evaluate`** ignoram erros do `Promise.all` — uma query com falha vira `data: null` silenciosamente e mostra dados parciais.
+5. **`AuthContext`** chama `fetchRoles` dentro de `setTimeout(0)` — primeira render ocorre com `isAdmin=false`, causando flicker e ocasional acesso negado em rotas admin.
+
+### Inconsistências de UX
+6. Diálogos destrutivos usam `window.confirm()` nativo (7 ocorrências) — quebra o tema dark, bloqueante, sem nome do item.
+7. Páginas de listagem (Companies, Questions, Risks, Kpis, ActionPlans, Raci, Assessments) não têm skeleton/loading — tela em branco até a query terminar.
+8. Sem `ErrorBoundary` global — qualquer erro de render = tela branca, sem opção de "tentar novamente".
+9. Formatação inconsistente: scores ora `toFixed(1)` ora cru; datas ora `toLocaleDateString('pt-BR')` ora ISO; pluralização ad-hoc.
+10. Empty states ausentes ou genéricos em metade das páginas.
+
+### Robustez de dados
+11. Nenhum formulário tem validação **Zod** — apenas `required` do HTML. Aceita strings com 1000+ chars, scores fora do range, emails inválidos.
+12. Mutações não refazem fetch consistentemente — após editar, UI fica dessincronizada até F5.
+13. Sem otimismo nem rollback em mutações (ex.: arrastar card no Kanban).
+
+## Plano de correção (correções rápidas, um ciclo)
+
+### 1. Bugs críticos
+- Reaplicar fix do **`downloadPdf`** com `fetch` direto + validação de `blob.size > 1000`.
+- Trocar **`.single()`** por `.maybeSingle()` em `Report.tsx` com fallback "Avaliação não encontrada".
+- Em **`Evaluate.handleFinish`**: usar `upsert` (com `onConflict: 'assessment_id,question_id'`) em vez de `delete + insert`; reverter status caso falhe.
+- Tratar erros explícitos em todos os `Promise.all` — se qualquer query falhar, mostrar toast e estado de erro.
+- Em **`AuthContext`**, aguardar `fetchRoles` antes de definir `loading=false`, para que rotas admin não tenham flicker.
+
+### 2. Consistência de UX
+- Criar componente **`ConfirmDialog`** (shadcn `AlertDialog`) e substituir todos os `window.confirm()`. Mostra o nome do item e destaca a ação destrutiva.
+- Criar componente **`PageSkeleton`** e usá-lo em todas as listagens enquanto carregam.
+- Adicionar **`ErrorBoundary`** global em `App.tsx` com fallback "Algo deu errado — recarregar".
+- Padronizar formatação em `src/lib/format.ts`: `formatDate`, `formatScore`, `formatPercent`, `pluralize`.
+- Padronizar empty states com componente **`EmptyState`** (ícone + título + descrição + CTA).
+
+### 3. Robustez de dados (Zod)
+- Adicionar schemas Zod em `src/lib/schemas.ts` para: Company, Question, Category, Assessment, ActionPlan, Risk, Kpi, Raci, Swot, Auth.
+- Validar via `safeParse` antes de cada submit; mostrar erros inline nos campos.
+- Limites: textos curtos ≤120, longos ≤2000, observações ≤5000, emails válidos, números nos ranges do schema.
+
+### 4. Sincronização
+- Após cada mutação (create/update/delete), refazer o fetch da lista (já existe em algumas, padronizar nas demais).
+- No Kanban: rollback otimista se o `update` falhar.
+
+## Detalhes técnicos
+
+```text
+Novos arquivos
+  src/components/ui/confirm-dialog.tsx   (AlertDialog wrapper + hook useConfirm)
+  src/components/ErrorBoundary.tsx       (class component + reset)
+  src/components/PageSkeleton.tsx        (skeleton genérico p/ listas)
+  src/components/EmptyState.tsx
+  src/lib/format.ts                      (formatDate/Score/Percent/pluralize)
+  src/lib/schemas.ts                     (todos os schemas Zod)
+
+Arquivos alterados
+  src/App.tsx                  + ErrorBoundary
+  src/contexts/AuthContext.tsx  fetchRoles aguardado
+  src/pages/ExportPdti.tsx     downloadPdf via fetch + blob size check
+  src/pages/Evaluate.tsx       upsert em vez de delete+insert
+  src/pages/Report.tsx         maybeSingle + estado "não encontrado"
+  src/pages/Dashboard.tsx      tratamento de erro + skeleton
+  Companies, Questions, Risks, Kpis, ActionPlans, Raci, Assessments
+       confirm dialog, skeleton, empty state, Zod, refetch padronizado
 ```
-\vspace{1cm}\par
-{\centering\rule{0.6\textwidth}{1.5pt}\par}
-\vspace{1cm}
-```
 
-Aplicar nas duas réguas (1.5pt e 0.4pt). Sem outras mudanças no resto do template.
+## Fora de escopo (para próximo ciclo, se desejar)
+- Foreign keys + ON DELETE CASCADE em todas as tabelas (migration separada).
+- Testes automatizados dos fluxos críticos.
+- Refatoração estrutural com React Query (hoje só `QueryClientProvider` configurado, mas o app usa `useEffect+useState` em todo lugar).
+- i18n e dark/light toggle.
 
-## 2. Exportação PDF compilando o .tex
+## Critério de aceite
 
-Compilar LaTeX no navegador é inviável (binário enorme). Solução: **edge function** que envia o `.tex` para um serviço público de compilação e devolve o PDF binário.
-
-### Backend
-- Nova edge function `compile-latex` (verify_jwt = false; chamada autenticada via supabase client):
-  - Recebe `{ tex: string, filename?: string }` no body.
-  - Faz POST para `https://texlive.net/cgi-bin/latexcgi` (serviço gratuito mantido pela TUG, suporta `pdflatex`/`xelatex` com pacotes do TeX Live completo — `geometry`, `fancyhdr`, `booktabs`, `longtable`, `titlesec`, `hyperref` já incluídos).
-  - Retorna o PDF como `application/pdf` (passthrough do binário, com `Content-Disposition: attachment`).
-  - Em caso de erro de compilação, retorna `{ error, log }` em JSON com status 422 para o frontend exibir o log de erro do LaTeX.
-- Fallback: se `texlive.net` falhar (timeout/5xx), tentar `https://latexonline.cc/compile` com mesmo payload. Ambos são gratuitos e não exigem chave.
-
-### Frontend (`ExportPdti.tsx`)
-- Novo botão **"Baixar PDF (compilado)"** ao lado de "Copiar LaTeX" / "Baixar .tex".
-- Desabilitado pelo Quality Gate (mesma regra dos outros botões).
-- Ao clicar:
-  1. Mostra `toast.loading("Compilando PDF…")`.
-  2. `supabase.functions.invoke('compile-latex', { body: { tex: latex, filename: ... } })`.
-  3. Se sucesso: cria blob, faz download `PDTI_<empresa>.pdf`, toast de sucesso.
-  4. Se erro: toast de erro com primeira linha do log do LaTeX e botão "Ver log" que abre um `<Dialog>` com o log completo (útil para debug).
-
-### Observações
-- Não mexer em `client.ts`, `types.ts` ou `.env`.
-- Nada de novas dependências npm — usar `fetch` nativo no edge function.
-- A função fica stateless e sem dados sensíveis (só recebe o .tex já gerado no cliente).
-
-## Arquivos
-
-**Novos**
-- `supabase/functions/compile-latex/index.ts`
-
-**Editados**
-- `src/lib/pdti-export.ts` — corrigir réguas da capa (linhas 504 e 508).
-- `src/pages/ExportPdti.tsx` — botão "Baixar PDF (compilado)" + diálogo de log de erro.
-- `supabase/config.toml` — registrar a função com `verify_jwt = false`.
-
-## Aceitação
-
-1. Capa do PDF gerado mostra duas linhas divisórias centralizadas, sem deslocamento ou sobreposição.
-2. Botão "Baixar PDF" gera e baixa um PDF compilado idêntico em estilo ao `.tex`.
-3. Se o LaTeX tiver erro de compilação, aparece toast de erro com opção de ver o log completo.
+- Nenhum `window.confirm()` no código.
+- Nenhuma tela branca após erro de query, render ou rota.
+- PDF do PDTI baixa corretamente (>1 KB) ou mostra log de erro.
+- Todos os formulários rejeitam dados inválidos antes de chamar Supabase, com mensagem inline em pt-BR.
+- Finalizar avaliação não pode resultar em perda de respostas.
