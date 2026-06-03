@@ -12,6 +12,10 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, Pencil, Trash2, BarChart3, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { toast } from 'sonner';
 import { getReadableError } from '@/lib/error-messages';
+import { useConfirm } from '@/components/ConfirmDialog';
+import { GridSkeleton } from '@/components/PageSkeleton';
+import { EmptyState } from '@/components/EmptyState';
+import { kpiSchema, validateOrToast } from '@/lib/schemas';
 
 const statusConfig: Record<string, { label: string; icon: any; className: string }> = {
   on_track: { label: 'No alvo', icon: TrendingUp, className: 'text-[hsl(var(--success))]' },
@@ -21,9 +25,11 @@ const statusConfig: Record<string, { label: string; icon: any; className: string
 
 const Kpis = () => {
   const { user } = useAuth();
+  const confirm = useConfirm();
   const [kpis, setKpis] = useState<any[]>([]);
   const [companies, setCompanies] = useState<any[]>([]);
   const [selectedCompany, setSelectedCompany] = useState('');
+  const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
   const [form, setForm] = useState({ name: '', description: '', category: '', target_value: '', current_value: '', unit: '', status: 'on_track' });
@@ -36,8 +42,11 @@ const Kpis = () => {
 
   const fetchKpis = async () => {
     if (!selectedCompany) return;
-    const { data } = await supabase.from('kpis').select('*').eq('company_id', selectedCompany).order('created_at');
+    setLoading(true);
+    const { data, error } = await supabase.from('kpis').select('*').eq('company_id', selectedCompany).order('created_at');
+    if (error) { toast.error(getReadableError(error)); setLoading(false); return; }
     setKpis((data as any[]) || []);
+    setLoading(false);
   };
 
   useEffect(() => { fetchData(); }, []);
@@ -46,12 +55,17 @@ const Kpis = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
-    const payload = {
-      name: form.name, description: form.description, category: form.category,
+    const parsed = validateOrToast(kpiSchema, {
+      name: form.name,
+      description: form.description,
+      category: form.category,
+      unit: form.unit,
       target_value: form.target_value ? parseFloat(form.target_value) : null,
       current_value: form.current_value ? parseFloat(form.current_value) : null,
-      unit: form.unit, status: form.status,
-    };
+      status: form.status,
+    }, toast.error);
+    if (!parsed) return;
+    const payload: any = parsed;
 
     if (editing) {
       const { error } = await supabase.from('kpis').update(payload).eq('id', editing.id);
@@ -74,8 +88,14 @@ const Kpis = () => {
     setOpen(true);
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Excluir este KPI?')) return;
+  const handleDelete = async (id: string, name: string) => {
+    const ok = await confirm({
+      title: 'Excluir KPI',
+      description: `Excluir o indicador "${name}"? Esta ação não pode ser desfeita.`,
+      confirmText: 'Excluir',
+      destructive: true,
+    });
+    if (!ok) return;
     const { error } = await supabase.from('kpis').delete().eq('id', id);
     if (error) { toast.error(getReadableError(error)); return; }
     toast.success('KPI removido!');
@@ -156,13 +176,14 @@ const Kpis = () => {
         </Select>
       </div>
 
-      {kpis.length === 0 ? (
-        <Card className="glass-card">
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <BarChart3 className="h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-muted-foreground">Nenhum KPI cadastrado</p>
-          </CardContent>
-        </Card>
+      {loading ? (
+        <GridSkeleton items={3} />
+      ) : kpis.length === 0 ? (
+        <EmptyState
+          icon={BarChart3}
+          title="Nenhum KPI cadastrado"
+          description="Defina indicadores estratégicos para acompanhar a evolução da TI."
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {kpis.map(kpi => {
@@ -179,7 +200,7 @@ const Kpis = () => {
                     </div>
                     <div className="flex gap-1">
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEdit(kpi)}><Pencil className="h-3 w-3" /></Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDelete(kpi.id)}><Trash2 className="h-3 w-3" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDelete(kpi.id, kpi.name)}><Trash2 className="h-3 w-3" /></Button>
                     </div>
                   </div>
                 </CardHeader>
