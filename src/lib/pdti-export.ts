@@ -473,6 +473,7 @@ export const buildLatex = (data: ExportData): string => {
   o.push('\\usepackage{array}');
   o.push('\\usepackage{tabularx}');
   o.push('\\usepackage{xcolor}');
+  o.push('\\usepackage{graphicx}');
   o.push('\\usepackage{hyperref}');
   o.push('\\usepackage{fancyhdr}');
   o.push('\\usepackage{titlesec}');
