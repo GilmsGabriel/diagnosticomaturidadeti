@@ -31,6 +31,7 @@ export interface RiskRow {
   risk_type?: string | null;          // threat | opportunity
   response_strategy?: string | null;  // mitigate | transfer | accept | avoid | explore | enhance
   status: string;
+  swot_origin?: string | null;        // FOR-01, FRA-01, OPO-01, AME-01
 }
 
 export interface PlanRow {
@@ -51,6 +52,9 @@ export interface PlanRow {
   kpi_success?: string | null;
   department?: string | null;
   action_code?: string | null;
+  capex?: number | null;
+  opex?: number | null;
+  swot_trace?: string | null;
 }
 
 export interface KpiRow {
@@ -75,6 +79,7 @@ export interface RaciRow {
 export interface SwotRow {
   type: 'strength' | 'weakness' | 'opportunity' | 'threat';
   description: string;
+  code?: string | null;
 }
 
 export interface ExportData {
