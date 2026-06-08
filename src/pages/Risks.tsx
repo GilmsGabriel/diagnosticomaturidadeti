@@ -45,8 +45,9 @@ const Risks = () => {
     description: '', category: '', probability: '3', impact: '3',
     mitigation: '', contingency: '', responsible: '',
     risk_type: 'threat', response_strategy: 'mitigate',
-    status: 'identified',
+    status: 'identified', swot_origin: '',
   });
+  const [swotItems, setSwotItems] = useState<any[]>([]);
   const [findings, setFindings] = useState<Array<{ id: string; name: string; score: number }>>([]);
 
   const fetchData = async () => {
@@ -62,6 +63,9 @@ const Risks = () => {
       const { data, error } = await supabase.from('risks').select('*').eq('company_id', selectedCompany).order('created_at', { ascending: false });
       if (error) throw error;
       setRisks((data as any[]) || []);
+      const { data: sw } = await (supabase.from('swot_entries') as any)
+        .select('id,code,type,description').eq('company_id', selectedCompany).order('type').order('sort_order');
+      setSwotItems(sw || []);
     // Load maturity findings (categories with score <= 1.5)
       const { data: ass } = await supabase.from('assessments').select('id').eq('company_id', selectedCompany).order('created_at', { ascending: false }).limit(1);
     if (ass?.length) {
@@ -99,6 +103,7 @@ const Risks = () => {
       risk_type: form.risk_type,
       response_strategy: form.response_strategy,
       status: form.status,
+      swot_origin: form.swot_origin,
     }, toast.error);
     if (!parsed) return;
     const payload: any = parsed;
@@ -114,7 +119,7 @@ const Risks = () => {
     }
     setOpen(false);
     setEditing(null);
-    setForm({ description: '', category: '', probability: '3', impact: '3', mitigation: '', contingency: '', responsible: '', risk_type: 'threat', response_strategy: 'mitigate', status: 'identified' });
+    setForm({ description: '', category: '', probability: '3', impact: '3', mitigation: '', contingency: '', responsible: '', risk_type: 'threat', response_strategy: 'mitigate', status: 'identified', swot_origin: '' });
     fetchRisks();
   };
 
@@ -125,7 +130,7 @@ const Risks = () => {
       probability: String(risk.probability), impact: String(risk.impact),
       mitigation: risk.mitigation || '', contingency: risk.contingency || '', responsible: risk.responsible || '',
       risk_type: risk.risk_type || 'threat', response_strategy: risk.response_strategy || 'mitigate',
-      status: risk.status,
+      status: risk.status, swot_origin: risk.swot_origin || '',
     });
     setOpen(true);
   };
@@ -146,7 +151,7 @@ const Risks = () => {
       responsible: '',
       risk_type: 'threat',
       response_strategy: 'mitigate',
-      status: 'identified',
+      status: 'identified', swot_origin: '',
     });
     setOpen(true);
   };
@@ -180,7 +185,7 @@ const Risks = () => {
           <h1 className="text-2xl font-bold">Gestão de Riscos</h1>
           <p className="text-muted-foreground text-sm mt-1">Mapeamento e mitigação de riscos</p>
         </div>
-        <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditing(null); setForm({ description: '', category: '', probability: '3', impact: '3', mitigation: '', contingency: '', responsible: '', risk_type: 'threat', response_strategy: 'mitigate', status: 'identified' }); } }}>
+        <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditing(null); setForm({ description: '', category: '', probability: '3', impact: '3', mitigation: '', contingency: '', responsible: '', risk_type: 'threat', response_strategy: 'mitigate', status: 'identified', swot_origin: '' }); } }}>
           <DialogTrigger asChild>
             <Button className="gap-2"><Plus className="h-4 w-4" />Novo Risco</Button>
           </DialogTrigger>
@@ -261,6 +266,20 @@ const Risks = () => {
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {Object.entries(statusLabels).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Origem SWOT (opcional)</Label>
+                <Select value={form.swot_origin || 'none'} onValueChange={v => setForm(f => ({ ...f, swot_origin: v === 'none' ? '' : v }))}>
+                  <SelectTrigger><SelectValue placeholder="Vincular a item SWOT" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sem vínculo</SelectItem>
+                    {swotItems.map(s => (
+                      <SelectItem key={s.id} value={s.code || s.id}>
+                        {(s.code || '—')} — {String(s.description).slice(0, 60)}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
