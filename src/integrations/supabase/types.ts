@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           action_code: string | null
           assessment_id: string | null
+          capex: number | null
           cia_indicators: string[]
           cobit_domain: string
           company_id: string
@@ -33,11 +34,13 @@ export type Database = {
           impact_score: number
           kanban_status: string
           kpi_success: string | null
+          opex: number | null
           priority: string
           reach: number
           rice_score: number | null
           risk_id: string | null
           status: string
+          swot_trace: string | null
           updated_at: string
           what: string
           when: string | null
@@ -48,6 +51,7 @@ export type Database = {
         Insert: {
           action_code?: string | null
           assessment_id?: string | null
+          capex?: number | null
           cia_indicators?: string[]
           cobit_domain?: string
           company_id: string
@@ -63,11 +67,13 @@ export type Database = {
           impact_score?: number
           kanban_status?: string
           kpi_success?: string | null
+          opex?: number | null
           priority?: string
           reach?: number
           rice_score?: number | null
           risk_id?: string | null
           status?: string
+          swot_trace?: string | null
           updated_at?: string
           what: string
           when?: string | null
@@ -78,6 +84,7 @@ export type Database = {
         Update: {
           action_code?: string | null
           assessment_id?: string | null
+          capex?: number | null
           cia_indicators?: string[]
           cobit_domain?: string
           company_id?: string
@@ -93,11 +100,13 @@ export type Database = {
           impact_score?: number
           kanban_status?: string
           kpi_success?: string | null
+          opex?: number | null
           priority?: string
           reach?: number
           rice_score?: number | null
           risk_id?: string | null
           status?: string
+          swot_trace?: string | null
           updated_at?: string
           what?: string
           when?: string | null
@@ -480,6 +489,7 @@ export type Database = {
           risk_level: string | null
           risk_type: string
           status: string
+          swot_origin: string | null
           updated_at: string
         }
         Insert: {
@@ -498,6 +508,7 @@ export type Database = {
           risk_level?: string | null
           risk_type?: string
           status?: string
+          swot_origin?: string | null
           updated_at?: string
         }
         Update: {
@@ -516,6 +527,7 @@ export type Database = {
           risk_level?: string | null
           risk_type?: string
           status?: string
+          swot_origin?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -530,6 +542,7 @@ export type Database = {
       }
       swot_entries: {
         Row: {
+          code: string | null
           company_id: string
           created_at: string
           created_by: string
@@ -540,6 +553,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          code?: string | null
           company_id: string
           created_at?: string
           created_by: string
@@ -550,6 +564,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          code?: string | null
           company_id?: string
           created_at?: string
           created_by?: string

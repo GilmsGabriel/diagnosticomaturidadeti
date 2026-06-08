@@ -41,6 +41,9 @@ const emptyForm = {
   kpi_success: '',
   department: '',
   action_code: '',
+  capex: '' as string,
+  opex: '' as string,
+  swot_trace: '',
 };
 
 const ActionPlans = () => {
@@ -55,6 +58,7 @@ const ActionPlans = () => {
   const [editing, setEditing] = useState<any | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [criticalRisks, setCriticalRisks] = useState<any[]>([]);
+  const [swotItems, setSwotItems] = useState<any[]>([]);
 
   useEffect(() => { (async () => {
     const { data: comps } = await supabase.from('companies').select('*').order('name');
@@ -70,6 +74,9 @@ const ActionPlans = () => {
     setAssessments(ass || []);
     const { data: risks } = await supabase.from('risks').select('*').eq('company_id', selectedCompany);
     setCriticalRisks(((risks as any[]) || []).filter(r => r.probability * r.impact >= 15));
+    const { data: sw } = await (supabase.from('swot_entries') as any)
+      .select('id,code,type,description').eq('company_id', selectedCompany).order('type').order('sort_order');
+    setSwotItems(sw || []);
   };
   useEffect(() => { fetchPlans(); }, [selectedCompany]);
 
@@ -130,6 +137,9 @@ const ActionPlans = () => {
       kpi_success: form.kpi_success,
       department: form.department,
       action_code: form.action_code,
+      capex: form.capex === '' ? null : Number(form.capex),
+      opex: form.opex === '' ? null : Number(form.opex),
+      swot_trace: form.swot_trace,
     }, toast.error);
     if (!parsed) return;
     const payload: any = {
@@ -143,6 +153,9 @@ const ActionPlans = () => {
       kpi_success: form.kpi_success || '',
       department: form.department || '',
       action_code: form.action_code || '',
+      capex: form.capex === '' ? null : Number(form.capex),
+      opex: form.opex === '' ? null : Number(form.opex),
+      swot_trace: form.swot_trace || '',
     };
     if (editing) {
       const { error } = await supabase.from('action_plans').update(payload).eq('id', editing.id);
@@ -172,6 +185,9 @@ const ActionPlans = () => {
       kpi_success: p.kpi_success || '',
       department: p.department || '',
       action_code: p.action_code || '',
+      capex: p.capex != null ? String(p.capex) : '',
+      opex: p.opex != null ? String(p.opex) : '',
+      swot_trace: p.swot_trace || '',
     });
     setOpen(true);
   };
@@ -236,6 +252,32 @@ const ActionPlans = () => {
                     <div className="space-y-2"><Label>Quanto custa? (How Much)</Label><Input value={form.how_much} onChange={e => setForm(f => ({ ...f, how_much: e.target.value }))} placeholder="R$ ..." /></div>
                   </div>
                   <div className="space-y-2"><Label>Como? (How)</Label><Textarea rows={2} value={form.how} onChange={e => setForm(f => ({ ...f, how: e.target.value }))} placeholder="Método de execução" /></div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>CAPEX (R$)</Label>
+                      <Input type="number" step="0.01" min="0" value={form.capex}
+                        onChange={e => setForm(f => ({ ...f, capex: e.target.value }))} placeholder="0,00" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>OPEX (R$)</Label>
+                      <Input type="number" step="0.01" min="0" value={form.opex}
+                        onChange={e => setForm(f => ({ ...f, opex: e.target.value }))} placeholder="0,00" />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Rastreia SWOT (opcional)</Label>
+                    <Select value={form.swot_trace || 'none'} onValueChange={v => setForm(f => ({ ...f, swot_trace: v === 'none' ? '' : v }))}>
+                      <SelectTrigger><SelectValue placeholder="Vincular a item SWOT" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Sem vínculo</SelectItem>
+                        {swotItems.map(s => (
+                          <SelectItem key={s.id} value={s.code || s.id}>
+                            {(s.code || '—')} — {String(s.description).slice(0, 60)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div className="space-y-2">
                     <Label>KPI de sucesso</Label>
                     <Textarea rows={2} value={form.kpi_success} onChange={e => setForm(f => ({ ...f, kpi_success: e.target.value }))}

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import {
   LayoutDashboard, Building2, FileQuestion, ClipboardCheck, LogOut, Shield,
   Menu, X, Users, ClipboardList, ShieldAlert, BarChart3, Compass, Wrench,
-  FileDown,
+  FileDown, Target,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -28,6 +28,7 @@ const navGroups: NavGroup[] = [
     items: [
       { to: '/assessments', label: 'Avaliações', icon: ClipboardCheck },
       { to: '/questions', label: 'Banco de Questões', icon: FileQuestion },
+      { to: '/swot', label: 'Análise SWOT', icon: Target },
       { to: '/risks', label: 'Riscos', icon: ShieldAlert },
     ],
   },

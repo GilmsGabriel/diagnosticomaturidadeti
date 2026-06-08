@@ -76,6 +76,7 @@ export const riskSchema = z.object({
   risk_type: z.enum(['threat', 'opportunity']),
   response_strategy: z.enum(['mitigate', 'transfer', 'accept', 'avoid', 'explore', 'enhance']),
   status: z.enum(['identified', 'mitigated', 'accepted', 'resolved']),
+  swot_origin: optionalString(20, 'Origem SWOT'),
 });
 
 // ===== KPI =====
@@ -112,6 +113,16 @@ export const actionPlanSchema = z.object({
   kpi_success: optionalString(500, 'KPI'),
   department: optionalString(80, 'Departamento'),
   action_code: optionalString(40, 'Código'),
+  capex: z.number().min(0).nullable().optional(),
+  opex: z.number().min(0).nullable().optional(),
+  swot_trace: optionalString(40, 'Rastreio SWOT'),
+});
+
+// ===== SWOT =====
+export const swotSchema = z.object({
+  type: z.enum(['strength', 'weakness', 'opportunity', 'threat']),
+  description: requiredString(500, 'Descrição'),
+  code: optionalString(20, 'Código'),
 });
 
 // ===== RACI =====
