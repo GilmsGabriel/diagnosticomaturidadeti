@@ -575,7 +575,29 @@ export const buildLatex = (data: ExportData): string => {
     o.push('\\end{longtable}');
   }
 
-  // ----- 2. DIAGNÓSTICO -----
+  // ----- 2. ANÁLISE SITUACIONAL (SWOT) -----
+  o.push('\\section{Análise Situacional}');
+  if (data.swot.length) {
+    o.push('\\subsection{Análise SWOT Corporativa da TI}');
+    o.push('Matriz SWOT identificando Forças (FOR), Fraquezas (FRA), Oportunidades (OPO) e Ameaças (AME). Cada item possui código único, citável pelas demais seções (Riscos e Planos de Ação).');
+    const byType = (t: string) => data.swot.filter(s => s.type === t);
+    const codeFor = (s: SwotRow, prefix: string, idx: number) =>
+      (s.code && s.code.trim()) || `${prefix}-${String(idx + 1).padStart(2, '0')}`;
+    const block = (title: string, prefix: string, rows: SwotRow[]) => {
+      if (!rows.length) return;
+      o.push(`\\subsubsection*{${title}}`);
+      o.push('\\begin{longtable}{L{2cm} L{12cm}}');
+      o.push('\\toprule \\textbf{Código} & \\textbf{Descrição} \\\\ \\midrule \\endhead \\bottomrule \\endlastfoot');
+      rows.forEach((s, i) => o.push(`${tex(codeFor(s, prefix, i))} & ${tex(s.description)} \\\\`));
+      o.push('\\end{longtable}');
+    };
+    block('Forças (FOR)', 'FOR', byType('strength'));
+    block('Fraquezas (FRA)', 'FRA', byType('weakness'));
+    block('Oportunidades (OPO)', 'OPO', byType('opportunity'));
+    block('Ameaças (AME)', 'AME', byType('threat'));
+  }
+
+  // ----- 3. DIAGNÓSTICO -----
   o.push('\\section{Diagnóstico Situacional (As-Is)}');
   if (data.maturity && data.maturity.categories.length) {
     o.push('\\subsection{Maturidade COBIT --- Atual vs. Alvo}');
@@ -590,37 +612,17 @@ export const buildLatex = (data: ExportData): string => {
     o.push('\\end{longtable}');
   }
 
-  if (data.swot.length) {
-    o.push('\\subsection{Análise SWOT da TI}');
-    o.push('\\begin{longtable}{L{7cm} L{7cm}}');
-    o.push('\\toprule \\textbf{Forças (Internas)} & \\textbf{Fraquezas (Internas)} \\\\ \\midrule \\endhead \\bottomrule \\endlastfoot');
-    const byType = (t: string) => data.swot.filter(s => s.type === t);
-    const S = byType('strength'); const W = byType('weakness');
-    const itemize = (arr: SwotRow[]) =>
-      arr.length
-        ? '\\begin{itemize}[leftmargin=1em, topsep=0pt, itemsep=2pt]' +
-          arr.map(x => `\\item ${tex(x.description)}`).join(' ') +
-          '\\end{itemize}'
-        : '--';
-    o.push(`${itemize(S)} & ${itemize(W)} \\\\`);
-    o.push('\\end{longtable}');
-    o.push('\\begin{longtable}{L{7cm} L{7cm}}');
-    o.push('\\toprule \\textbf{Oportunidades (Externas)} & \\textbf{Ameaças (Externas)} \\\\ \\midrule \\endhead \\bottomrule \\endlastfoot');
-    const O = byType('opportunity'); const T = byType('threat');
-    o.push(`${itemize(O)} & ${itemize(T)} \\\\`);
-    o.push('\\end{longtable}');
-  }
-
-  // ----- 3. RISCOS -----
+  // ----- 4. RISCOS -----
   o.push('\\section{Gestão de Riscos}');
   if (data.risks.length) {
     o.push('Matriz consolidada (Probabilidade $\\times$ Impacto). O escore P$\\times$I varia de 1 a 25.');
     o.push('\\subsection{Matriz de Riscos}');
-    o.push('\\begin{longtable}{L{3.8cm} C{1.8cm} C{2cm} C{1.8cm} C{1cm} L{2.2cm} L{2.5cm}}');
-    o.push('\\toprule \\textbf{Descrição} & \\textbf{Tipo} & \\textbf{Probabilidade} & \\textbf{Impacto} & \\textbf{P$\\times$I} & \\textbf{Estratégia} & \\textbf{Responsável} \\\\');
+    o.push('\\begin{longtable}{L{3.2cm} C{1.5cm} C{1.6cm} C{1.5cm} C{1.6cm} C{1.6cm} L{1.9cm} L{1.9cm}}');
+    o.push('\\toprule \\textbf{Descrição} & \\textbf{Origem SWOT} & \\textbf{Tipo} & \\textbf{Prob.} & \\textbf{Impacto} & \\textbf{Cálculo (P$\\times$I)} & \\textbf{Estratégia} & \\textbf{Responsável} \\\\');
     o.push('\\midrule \\endhead \\bottomrule \\endlastfoot');
     data.risks.forEach(r => {
-      o.push(`${tex(r.description)} & ${tex(typeLabel(r.risk_type))} & ${tex(qual(r.probability))} & ${tex(qual(r.impact))} & ${r.probability * r.impact} & ${tex(responseLabel(r.response_strategy))} & ${tex(r.responsible)} \\\\`);
+      const calc = `$${r.probability} \\times ${r.impact} = ${r.probability * r.impact}$`;
+      o.push(`${tex(r.description)} & ${tex(r.swot_origin || '--')} & ${tex(typeLabel(r.risk_type))} & ${tex(qual(r.probability))} & ${tex(qual(r.impact))} & ${calc} & ${tex(responseLabel(r.response_strategy))} & ${tex(r.responsible)} \\\\`);
     });
     o.push('\\end{longtable}');
 
@@ -629,6 +631,7 @@ export const buildLatex = (data: ExportData): string => {
       o.push('\\subsection{Planos de Mitigação e Contingência (Top 5)}');
       top.forEach(r => {
         o.push(`\\subsubsection*{${tex(r.description)} (P$\\times$I = ${r.probability * r.impact})}`);
+        if (r.swot_origin) o.push(`\\textit{Origem SWOT:} ${tex(r.swot_origin)}\\par`);
         o.push(`\\textbf{Mitigação:} ${tex(r.mitigation)}\\par`);
         o.push(`\\textbf{Contingência:} ${tex(r.contingency)}\\par`);
       });
@@ -659,12 +662,30 @@ export const buildLatex = (data: ExportData): string => {
       o.push(`\\noindent\\textbf{${tex(p.what)}}`);
       o.push('\\begin{longtable}{L{3.5cm} L{10cm}} \\toprule');
       o.push(`\\textbf{What (O quê)} & ${tex(p.what)} \\\\ \\midrule`);
-      o.push(`\\textbf{Why (Por quê)} & ${tex(p.why)} \\\\`);
+      const traceLine = p.swot_trace
+        ? ` \\\\ \\textit{Rastreia: ${tex(p.swot_trace)}}`
+        : '';
+      o.push(`\\textbf{Why (Por quê)} & ${tex(p.why)}${traceLine} \\\\`);
       o.push(`\\textbf{Who (Quem)} & ${tex(p.who)} \\\\`);
       o.push(`\\textbf{When (Quando)} & ${tex(p.when || fmtDate(p.due_date))} \\\\`);
       o.push(`\\textbf{Where (Onde)} & ${tex(p.where || p.department)} \\\\`);
       o.push(`\\textbf{How (Como)} & ${tex(p.how)} \\\\`);
-      o.push(`\\textbf{How much (Quanto)} & ${tex(p.how_much)} \\\\`);
+      const fmtMoney = (n?: number | null) =>
+        typeof n === 'number' && !isNaN(n)
+          ? `R\\$ ${n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+          : '--';
+      const capex = fmtMoney(p.capex);
+      const opex = fmtMoney(p.opex);
+      const total = (typeof p.capex === 'number' ? p.capex : 0) + (typeof p.opex === 'number' ? p.opex : 0);
+      const totalStr = (p.capex != null || p.opex != null)
+        ? fmtMoney(total)
+        : (p.how_much ? tex(p.how_much) : '--');
+      o.push('\\textbf{How much (Quanto)} & ' +
+        '\\begin{itemize}[leftmargin=1.2em, topsep=0pt, itemsep=1pt]' +
+        `\\item \\textbf{Total:} ${totalStr}` +
+        `\\item \\textbf{CAPEX:} ${capex}` +
+        `\\item \\textbf{OPEX:} ${opex}` +
+        '\\end{itemize} \\\\');
       o.push(`\\textbf{KPI de sucesso} & ${tex(p.kpi_success)} \\\\`);
       o.push(`\\textbf{Domínio COBIT} & ${tex(p.cobit_domain)} \\\\`);
       o.push('\\bottomrule \\end{longtable}');
@@ -705,8 +726,24 @@ export const buildLatex = (data: ExportData): string => {
     o.push('\\end{longtable}');
   }
 
-  o.push('\\subsection{Curva S de Execução}');
-  o.push('A Curva S consolidada do PDTI é monitorada mensalmente pelo Comitê. Desvios superiores a 10\\% acionam plano de recuperação, com revisão de escopo, prazo ou recurso. A linha de base é definida pela soma ponderada do esforço (E da matriz RICE) das ações priorizadas.');
+  o.push('\\subsection{Curva S de Execução e Gatilho de Governança}');
+  o.push(`A Curva S consolidada do PDTI da ${tex(c.name)} é monitorada mensalmente pelo Comitê de Governança Digital. ` +
+    `Desvios superiores a 10\\% acionam plano de recuperação, com revisão de escopo, prazo ou recurso. ` +
+    `A linha de base é definida pela soma ponderada do esforço (E da matriz RICE) das ações priorizadas. ` +
+    `Desvios acumulados acima de 20\\% caracterizam \\textbf{gatilho compulsório de auditoria}, ` +
+    `convocando o comitê de auditoria da ${tex(c.name)} para revisão independente, ` +
+    `reporte à diretoria executiva e, quando aplicável, ao conselho de administração ou entidade reguladora competente.`);
+
+  o.push('\\subsection{Conclusão}');
+  o.push(`Este PDTI ${horizon} consolida o roteiro de evolução da TI da ${tex(c.name)} ` +
+    `e atua como instrumento central de alinhamento entre tecnologia e estratégia de longo prazo. ` +
+    `A execução disciplinada das ações priorizadas eleva a maturidade COBIT, reduz a exposição a riscos críticos ` +
+    `e amplia a previsibilidade financeira via separação clara entre CAPEX e OPEX. ` +
+    `Para a ${tex(c.name)}, o PDTI sustenta decisões estratégicas de longo prazo --- incluindo eventuais eventos ` +
+    `de liquidez futura (M\\&A, abertura de capital/IPO) --- ao demonstrar governança madura, controles auditáveis ` +
+    `e aderência às boas práticas de COBIT 2019, ITIL 4, ISO/IEC 27001 e ao arcabouço regulatório aplicável ` +
+    `(LGPD e demais requisitos setoriais). Em última análise, o documento institucionaliza a TI como vetor ` +
+    `de geração de valor, mitigação de riscos e conformidade contínua.`);
 
   o.push('\\end{document}');
   return o.join('\n');
