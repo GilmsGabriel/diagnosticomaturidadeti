@@ -521,7 +521,12 @@ export const buildLatex = (data: ExportData): string => {
   if (c.sponsor) o.push(`\\textbf{Patrocinador:} & ${tex(c.sponsor)} \\\\[0.4em]`);
   o.push('\\textbf{Versão:} & 1.0 \\\\[0.4em]');
   o.push(`\\textbf{Vigência:} & ${horizon} \\\\[0.4em]`);
-  if (c.contact_name) o.push(`\\textbf{Contato:} & ${tex(c.contact_name)}${c.contact_email ? ` (${tex(c.contact_email)})` : ''} \\\\[0.4em]`);
+  if (c.contact_name) {
+    const email = c.contact_email
+      ? ` (\\href{mailto:${tex(c.contact_email)}}{\\textcolor{pdtiblue}{${tex(c.contact_email)}}})`
+      : '';
+    o.push(`\\textbf{Contato:} & ${tex(c.contact_name)}${email} \\\\[0.4em]`);
+  }
   if (data.assessmentDate) o.push(`\\textbf{Diagnóstico:} & ${tex(data.assessmentDate)} \\\\`);
   o.push('\\end{tabular}');
   o.push('\\vspace{2cm}');
