@@ -1,85 +1,110 @@
 ## Objetivo
+Injetar todos os dados do caso **Banco Meridional S.A.** nas tabelas existentes (sem alterar UI, schemas ou exportação LaTeX) para o usuário `bancomeridional@gmail.com` (id `37e65076-1736-4bff-a26e-baa94c0852ce`), de modo que o **Quality Gate da tela "Exportar PDTI" fique 100% aprovado** e o `.tex` esteja liberado.
 
-Elevar a confiabilidade percebida do app a nível profissional, eliminando bugs de consistência, telas brancas, erros silenciosos e comportamentos imprevisíveis — sem mudar funcionalidades.
+## Estratégia de injeção
+Tudo via **uma única chamada de data-write (insert/update/delete)**. Para idempotência, antes de inserir, removo registros prévios da empresa do usuário; depois insiro o conjunto completo.
 
-## Achados da auditoria (priorizados)
+Empresa-alvo já existente: `Banco Meridional S.A` (id `80e4d8ce-3793-4ec6-ae24-a9d4d7695775`). Será **atualizada** (não recriada) para preservar o id; demais entidades (riscos, planos, KPIs, RACI, SWOT, assessment, answers) serão deletadas e reinseridas.
 
-### Bugs concretos
-1. **`ExportPdti.downloadPdf`** voltou a usar `supabase.functions.invoke`, que não retorna binário corretamente. O toast diz "PDF compilado e baixado" mas o arquivo sai vazio. **Já corrigido antes; regressão.**
-2. **`Report.tsx`** usa `.single()` em assessment — se a avaliação for excluída ou o ID for inválido, a página quebra em vez de mostrar "não encontrada".
-3. **`Evaluate.handleFinish`** faz `DELETE` das respostas antigas e depois `INSERT` das novas sem transação. Se o insert falhar (rede, RLS), o usuário perde todas as respostas salvas.
-4. **`Dashboard`/`ExportPdti`/`Evaluate`** ignoram erros do `Promise.all` — uma query com falha vira `data: null` silenciosamente e mostra dados parciais.
-5. **`AuthContext`** chama `fetchRoles` dentro de `setTimeout(0)` — primeira render ocorre com `isAdmin=false`, causando flicker e ocasional acesso negado em rotas admin.
+## Conteúdo a ser populado
 
-### Inconsistências de UX
-6. Diálogos destrutivos usam `window.confirm()` nativo (7 ocorrências) — quebra o tema dark, bloqueante, sem nome do item.
-7. Páginas de listagem (Companies, Questions, Risks, Kpis, ActionPlans, Raci, Assessments) não têm skeleton/loading — tela em branco até a query terminar.
-8. Sem `ErrorBoundary` global — qualquer erro de render = tela branca, sem opção de "tentar novamente".
-9. Formatação inconsistente: scores ora `toFixed(1)` ora cru; datas ora `toLocaleDateString('pt-BR')` ora ISO; pluralização ad-hoc.
-10. Empty states ausentes ou genéricos em metade das páginas.
+### 1. `companies` (UPDATE da empresa existente)
+- `name`: Banco Meridional S.A.
+- `sector`: Financeiro / Bancário (Banco Múltiplo)
+- `cnpj`: (deduzido — usar placeholder genérico se faltar)
+- `contact_name`: Paulo Salles (Diretor de Tecnologia)
+- `contact_email`: paulo.salles@bancomeridional.com.br
+- `sponsor`: Conselho de Administração / Fundo de Pensão (resolução aprovada 5×4)
+- `plan_horizon`: 2026–2028
+- `mission` / `vision` / `values`: derivados do Plano "Meridional 2028" e cultura do "banco de relações"
+- `strategic_context`: parágrafo consolidando sede em Cuiabá-MT, carteira R$ 9,8 bi, 359.000 clientes (312k PF + 47k PJ), 68 agências + 4 centros + call center 380 posições + data center local, plano "Meridional 2028" (4 frentes) e pressões regulatórias (BACEN Res. 4.893/CMN 4.557, COAF, ANPD).
 
-### Robustez de dados
-11. Nenhum formulário tem validação **Zod** — apenas `required` do HTML. Aceita strings com 1000+ chars, scores fora do range, emails inválidos.
-12. Mutações não refazem fetch consistentemente — após editar, UI fica dessincronizada até F5.
-13. Sem otimismo nem rollback em mutações (ex.: arrastar card no Kanban).
+### 2. `assessments` + `assessment_answers` (1 assessment "completed")
+Para cada uma das 10 categorias (4 perguntas cada), gravar respostas inteiras (1–5) cuja **média bate o score-alvo** abaixo. Como `Governança de TI` exige 1.5, usar `[2,2,1,1]` (média 1.5); demais categorias todas em `[1,1,1,1]` (média 1.0).
 
-## Plano de correção (correções rápidas, um ciclo)
+| Categoria | Score atual | Respostas |
+|---|---:|---|
+| Governança de TI | 1.5 | 2,2,1,1 |
+| Segurança da Informação | 1.0 | 1,1,1,1 |
+| Infraestrutura | 1.0 | 1,1,1,1 |
+| Gestão de Serviços | 1.0 | 1,1,1,1 |
+| Desenvolvimento e Inovação | 1.0 | 1,1,1,1 |
+| Gestão de Dados | 1.0 | 1,1,1,1 |
+| APO | 1.0 | 1,1,1,1 |
+| BAI | 1.0 | 1,1,1,1 |
+| DSS | 1.0 | 1,1,1,1 |
+| MEA | 1.0 | 1,1,1,1 |
 
-### 1. Bugs críticos
-- Reaplicar fix do **`downloadPdf`** com `fetch` direto + validação de `blob.size > 1000`.
-- Trocar **`.single()`** por `.maybeSingle()` em `Report.tsx` com fallback "Avaliação não encontrada".
-- Em **`Evaluate.handleFinish`**: usar `upsert` (com `onConflict: 'assessment_id,question_id'`) em vez de `delete + insert`; reverter status caso falhe.
-- Tratar erros explícitos em todos os `Promise.all` — se qualquer query falhar, mostrar toast e estado de erro.
-- Em **`AuthContext`**, aguardar `fetchRoles` antes de definir `loading=false`, para que rotas admin não tenham flicker.
+`assessments`: status `completed`, `overall_score` ≈ 1.05, `maturity_level` `repetivel`, `notes` = "Diagnóstico baseado no caso Banco Meridional 2026; conformidade BACEN Res. 4.893 / CMN 4.557.", `completed_at` = agora.
 
-### 2. Consistência de UX
-- Criar componente **`ConfirmDialog`** (shadcn `AlertDialog`) e substituir todos os `window.confirm()`. Mostra o nome do item e destaca a ação destrutiva.
-- Criar componente **`PageSkeleton`** e usá-lo em todas as listagens enquanto carregam.
-- Adicionar **`ErrorBoundary`** global em `App.tsx` com fallback "Algo deu errado — recarregar".
-- Padronizar formatação em `src/lib/format.ts`: `formatDate`, `formatScore`, `formatPercent`, `pluralize`.
-- Padronizar empty states com componente **`EmptyState`** (ícone + título + descrição + CTA).
+### 3. `risks` — 10 registros (4 nomeados críticos + 6 auxiliares)
+**Os 4 críticos (P×I ≥ 15) terão `id` fixo** para serem referenciados pelos planos (`risk_id`):
+- R01 Colapso do Código Mestre — P 5 × I 5 = 25, categoria "Desenvolvimento e Inovação / Operacional"
+- R02 Fraude Interna / Segregação — P 4 × I 4 = 16, categoria "BAI / Fraude / Compliance"
+- R03 Engenharia Social/Phishing/Vishing — P 5 × I 4 = 20, categoria "Segurança da Informação"
+- R04 Sanções BACEN/ANPD/COAF — P 5 × I 5 = 25, categoria "MEA / Legal / Regulatório"
 
-### 3. Robustez de dados (Zod)
-- Adicionar schemas Zod em `src/lib/schemas.ts` para: Company, Question, Category, Assessment, ActionPlan, Risk, Kpi, Raci, Swot, Auth.
-- Validar via `safeParse` antes de cada submit; mostrar erros inline nos campos.
-- Limites: textos curtos ≤120, longos ≤2000, observações ≤5000, emails válidos, números nos ranges do schema.
+**6 auxiliares (P×I < 15)** com a descrição contendo o nome da categoria, para satisfazer o gate "todo domínio ≤1.5 tem risco associado". Cada um P 3 × I 3 = 9, estratégia "mitigate", status "identified", `swot_origin` apropriado:
+- R-Aux Governança de TI (centralização Meireles 26 anos, conselho sem independência)
+- R-Aux Infraestrutura (data center 1997, nobreak 61%, sem hot site)
+- R-Aux Gestão de Serviços (sem ITSM, heroísmo, chamados via telefone)
+- R-Aux Gestão de Dados (logs 30d, Excel com 2,3% erro, sem ROPA)
+- R-Aux APO (orçamento 74% legado, TI vista como custo, matriz de riscos desatualizada)
+- R-Aux DSS (uptime 93,8%, MTTR 5,1h, sem runbooks)
 
-### 4. Sincronização
-- Após cada mutação (create/update/delete), refazer o fetch da lista (já existe em algumas, padronizar nas demais).
-- No Kanban: rollback otimista se o `update` falhar.
+Cada risco terá `swot_origin` apontando para o código SWOT relevante (FRA-01..04, AME-01..03).
+
+### 4. `action_plans` — 4 planos 5W2H (vinculados a R01–R04 via `risk_id`)
+Todos os campos preenchidos conforme o briefing (what, why, where, when, who, how, how_much, due_date, priority=`high`, kanban_status=`backlog`, cobit_domain, cia_indicators, RICE, action_code, kpi_success, department) com **CAPEX/OPEX deduzidos do how_much**:
+
+| Ação | Risco | CAPEX | OPEX | swot_trace |
+|---|---|---:|---:|---|
+| ACT-SEC-01 MFA + 38 contas | R03 | 0 | 25.000 | FRA-02 |
+| ACT-GOV-01 CISO + Comitê | R02 | 0 | 90.000 | FRA-03 |
+| ACT-REG-01 Open Finance APIs | R04 | 380.000 | 0 | AME-01 |
+| ACT-OPS-01 DRP + Backups | R01 | 40.000 | 0 | FRA-04 |
+
+### 5. `swot_entries` — 13 itens (códigos auto-atribuídos)
+- **FOR-01..03** — 3 forças (relacionamento agro, baixa inadimplência rural, carteira R$ 9,8 bi)
+- **FRA-01..04** — 4 fraquezas (Código Mestre COBOL, dependência 3 devs, governança centralizada, data center 1997)
+- **OPO-01..03** — 3 oportunidades (app mobile, Open Finance, novo core homologado BACEN)
+- **AME-01..03** — 3 ameaças (BACEN/multas, ANPD/dados não-anonimizados, fraudes/engenharia social)
+
+### 6. `kpis` — KPIs deduzidos do caso (não obrigatório p/ gate, mas completa o PDTI)
+- Uptime core bancário (Atual 93,8 % / Meta y1 99,5 % / Meta y2 99,7 %)
+- MTTR (5,1 h → 2,0 h → 1,0 h)
+- % MFA ativo (0 % → 100 %)
+- Contas ativas de ex-funcionários (38 → 0)
+- Retenção de logs (30 d → 180 d)
+- % orçamento em modernização (11 % → 35 %)
+- Multas regulatórias acumuladas R$ (16 mi → 0)
+
+### 7. `raci_entries` — 6 processos-chave
+Governança de TI, Gestão de Segurança, Gestão de Riscos, Open Finance, Mudanças em Produção, Continuidade/DRP — com R/A/C/I extraídos do caso (Paulo Salles, Beatriz Fontes, Oswaldo Meireles, CISO novo, Comitê de Auditoria, Conselho/Fundo de Pensão).
 
 ## Detalhes técnicos
+- Operação executada em **uma transação SQL única** via `supabase--insert`:
+  1. `DELETE FROM action_plans WHERE company_id = '<id>'`
+  2. `DELETE FROM risks WHERE company_id = '<id>'`
+  3. `DELETE FROM kpis WHERE company_id = '<id>'`
+  4. `DELETE FROM raci_entries WHERE company_id = '<id>'`
+  5. `DELETE FROM swot_entries WHERE company_id = '<id>'`
+  6. `DELETE FROM assessment_answers WHERE assessment_id IN (SELECT id FROM assessments WHERE company_id = '<id>')`
+  7. `DELETE FROM assessments WHERE company_id = '<id>'`
+  8. `UPDATE companies SET ... WHERE id = '<id>'`
+  9. `INSERT INTO swot_entries ... RETURNING id` (com códigos FOR/FRA/OPO/AME)
+  10. `INSERT INTO risks ...` (10 linhas, 4 com ids fixos)
+  11. `INSERT INTO action_plans ...` (4 linhas com `risk_id` apontando para R01–R04)
+  12. `INSERT INTO kpis ...` (7 linhas)
+  13. `INSERT INTO raci_entries ...` (6 linhas)
+  14. `INSERT INTO assessments ... RETURNING id`
+  15. `INSERT INTO assessment_answers ...` (40 linhas — 4 por categoria × 10 categorias)
+- Todos os `created_by`, `assessor_id`, `company_id` apontando para os ids reais já existentes.
+- Sem migração de schema, sem mudança de arquivos do projeto. **Nenhuma alteração de UI ou de `pdti-export.ts`.**
 
-```text
-Novos arquivos
-  src/components/ui/confirm-dialog.tsx   (AlertDialog wrapper + hook useConfirm)
-  src/components/ErrorBoundary.tsx       (class component + reset)
-  src/components/PageSkeleton.tsx        (skeleton genérico p/ listas)
-  src/components/EmptyState.tsx
-  src/lib/format.ts                      (formatDate/Score/Percent/pluralize)
-  src/lib/schemas.ts                     (todos os schemas Zod)
-
-Arquivos alterados
-  src/App.tsx                  + ErrorBoundary
-  src/contexts/AuthContext.tsx  fetchRoles aguardado
-  src/pages/ExportPdti.tsx     downloadPdf via fetch + blob size check
-  src/pages/Evaluate.tsx       upsert em vez de delete+insert
-  src/pages/Report.tsx         maybeSingle + estado "não encontrado"
-  src/pages/Dashboard.tsx      tratamento de erro + skeleton
-  Companies, Questions, Risks, Kpis, ActionPlans, Raci, Assessments
-       confirm dialog, skeleton, empty state, Zod, refetch padronizado
-```
-
-## Fora de escopo (para próximo ciclo, se desejar)
-- Foreign keys + ON DELETE CASCADE em todas as tabelas (migration separada).
-- Testes automatizados dos fluxos críticos.
-- Refatoração estrutural com React Query (hoje só `QueryClientProvider` configurado, mas o app usa `useEffect+useState` em todo lugar).
-- i18n e dark/light toggle.
-
-## Critério de aceite
-
-- Nenhum `window.confirm()` no código.
-- Nenhuma tela branca após erro de query, render ou rota.
-- PDF do PDTI baixa corretamente (>1 KB) ou mostra log de erro.
-- Todos os formulários rejeitam dados inválidos antes de chamar Supabase, com mensagem inline em pt-BR.
-- Finalizar avaliação não pode resultar em perda de respostas.
+## Validação final
+Após a injeção, acessar `/export-pdti` selecionando "Banco Meridional S.A." deve mostrar:
+- ✓ Domínios críticos com risco associado
+- ✓ Riscos críticos com plano 5W2H
+- ✓ Planos com Responsável e Prazo
+- Botões "Copiar LaTeX", "Baixar .tex" e "Baixar PDF compilado" liberados.
