@@ -600,7 +600,10 @@ export const buildLatex = (data: ExportData): string => {
       o.push(`\\subsubsection*{${title}}`);
       o.push('\\begin{longtable}{L{2cm} L{12cm}}');
       o.push('\\toprule \\textbf{Código} & \\textbf{Descrição} \\\\ \\midrule \\endhead \\bottomrule \\endlastfoot');
-      rows.forEach((s, i) => o.push(`${tex(codeFor(s, prefix, i))} & ${tex(s.description)} \\\\`));
+      rows.forEach((s, i, arr) => {
+        const sep = i < arr.length - 1 ? ' \\midrule' : '';
+        o.push(`${tex(codeFor(s, prefix, i))} & ${tex(s.description)} \\\\${sep}`);
+      });
       o.push('\\end{longtable}');
     };
     block('Forças (FOR)', 'FOR', byType('strength'));
