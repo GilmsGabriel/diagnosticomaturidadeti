@@ -22,6 +22,7 @@ import Risks from "./pages/Risks";
 import Kpis from "./pages/Kpis";
 import ExportPdti from "./pages/ExportPdti";
 import Swot from "./pages/Swot";
+import ReportSettings from "./pages/ReportSettings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -64,6 +65,7 @@ const App = () => (
             <Route path="/risks" element={<ProtectedRoute><Risks /></ProtectedRoute>} />
             <Route path="/kpis" element={<ProtectedRoute><Kpis /></ProtectedRoute>} />
             <Route path="/swot" element={<ProtectedRoute><Swot /></ProtectedRoute>} />
+            <Route path="/report-settings" element={<ProtectedRoute><ReportSettings /></ProtectedRoute>} />
             <Route path="/export-pdti" element={<ProtectedRoute><ExportPdti /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
               </Routes>
