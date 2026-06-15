@@ -10,8 +10,12 @@ const META: Record<CIAIndicator, { icon: typeof Shield; label: string; desc: str
 
 export const CIAIndicators = ({ indicators }: { indicators: CIAIndicator[] }) => (
   <div className="flex items-center gap-1.5">
-    {indicators.map(key => {
+    {indicators.map(raw => {
+      const k = String(raw || '').trim().toUpperCase();
+      const key = (k.startsWith('C') ? 'C' : k.startsWith('I') ? 'I' : k.startsWith('A') ? 'A' : null) as CIAIndicator | null;
+      if (!key) return null;
       const m = META[key];
+      if (!m) return null;
       const Icon = m.icon;
       return (
         <Tooltip key={key}>

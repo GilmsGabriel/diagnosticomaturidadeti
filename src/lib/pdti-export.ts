@@ -92,6 +92,18 @@ export interface ExportData {
   kpis: KpiRow[];
   raci: RaciRow[];
   swot: SwotRow[];
+  /**
+   * Optional user-customised narrative blocks. Each value can be:
+   *  - undefined: exporter uses the built-in default narrative
+   *  - '' (empty string): exporter OMITS the corresponding section/subsection
+   *  - non-empty string: exporter uses the supplied text verbatim
+   * Template variable {{current_company}} is expected to be already resolved.
+   */
+  narratives?: {
+    intro?: string;
+    curvaS?: string;
+    conclusao?: string;
+  };
 }
 
 export interface QualityCheck { label: string; pass: boolean; items: string[]; hint?: string; }
@@ -588,7 +600,10 @@ export const buildLatex = (data: ExportData): string => {
       o.push(`\\subsubsection*{${title}}`);
       o.push('\\begin{longtable}{L{2cm} L{12cm}}');
       o.push('\\toprule \\textbf{Código} & \\textbf{Descrição} \\\\ \\midrule \\endhead \\bottomrule \\endlastfoot');
-      rows.forEach((s, i) => o.push(`${tex(codeFor(s, prefix, i))} & ${tex(s.description)} \\\\`));
+      rows.forEach((s, i, arr) => {
+        const sep = i < arr.length - 1 ? ' \\midrule' : '';
+        o.push(`${tex(codeFor(s, prefix, i))} & ${tex(s.description)} \\\\${sep}`);
+      });
       o.push('\\end{longtable}');
     };
     block('Forças (FOR)', 'FOR', byType('strength'));
@@ -617,12 +632,13 @@ export const buildLatex = (data: ExportData): string => {
   if (data.risks.length) {
     o.push('Matriz consolidada (Probabilidade $\\times$ Impacto). O escore P$\\times$I varia de 1 a 25.');
     o.push('\\subsection{Matriz de Riscos}');
-    o.push('\\begin{longtable}{L{3.2cm} C{1.5cm} C{1.6cm} C{1.5cm} C{1.6cm} C{1.6cm} L{1.9cm} L{1.9cm}}');
+    o.push('\\begin{longtable}{L{4.2cm} C{1.3cm} C{1.0cm} C{1.0cm} C{1.4cm} C{1.3cm} L{1.8cm} L{1.8cm}}');
     o.push('\\toprule \\textbf{Descrição} & \\textbf{Origem SWOT} & \\textbf{Tipo} & \\textbf{Prob.} & \\textbf{Impacto} & \\textbf{Cálculo (P$\\times$I)} & \\textbf{Estratégia} & \\textbf{Responsável} \\\\');
     o.push('\\midrule \\endhead \\bottomrule \\endlastfoot');
-    data.risks.forEach(r => {
+    data.risks.forEach((r, i, arr) => {
       const calc = `$${r.probability} \\times ${r.impact} = ${r.probability * r.impact}$`;
-      o.push(`${tex(r.description)} & ${tex(r.swot_origin || '--')} & ${tex(typeLabel(r.risk_type))} & ${tex(qual(r.probability))} & ${tex(qual(r.impact))} & ${calc} & ${tex(responseLabel(r.response_strategy))} & ${tex(r.responsible)} \\\\`);
+      const sep = i < arr.length - 1 ? ' \\midrule' : '';
+      o.push(`${tex(r.description)} & ${tex(r.swot_origin || '--')} & ${tex(typeLabel(r.risk_type))} & ${tex(qual(r.probability))} & ${tex(qual(r.impact))} & ${calc} & ${tex(responseLabel(r.response_strategy))} & ${tex(r.responsible)} \\\\${sep}`);
     });
     o.push('\\end{longtable}');
 
@@ -665,11 +681,11 @@ export const buildLatex = (data: ExportData): string => {
       const traceLine = p.swot_trace
         ? ` \\\\ \\textit{Rastreia: ${tex(p.swot_trace)}}`
         : '';
-      o.push(`\\textbf{Why (Por quê)} & ${tex(p.why)}${traceLine} \\\\`);
-      o.push(`\\textbf{Who (Quem)} & ${tex(p.who)} \\\\`);
-      o.push(`\\textbf{When (Quando)} & ${tex(p.when || fmtDate(p.due_date))} \\\\`);
-      o.push(`\\textbf{Where (Onde)} & ${tex(p.where || p.department)} \\\\`);
-      o.push(`\\textbf{How (Como)} & ${tex(p.how)} \\\\`);
+      o.push(`\\textbf{Why (Por quê)} & ${tex(p.why)}${traceLine} \\\\ \\midrule`);
+      o.push(`\\textbf{Who (Quem)} & ${tex(p.who)} \\\\ \\midrule`);
+      o.push(`\\textbf{When (Quando)} & ${tex(p.when || fmtDate(p.due_date))} \\\\ \\midrule`);
+      o.push(`\\textbf{Where (Onde)} & ${tex(p.where || p.department)} \\\\ \\midrule`);
+      o.push(`\\textbf{How (Como)} & ${tex(p.how)} \\\\ \\midrule`);
       const fmtMoney = (n?: number | null) =>
         typeof n === 'number' && !isNaN(n)
           ? `R\\$ ${n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -685,23 +701,37 @@ export const buildLatex = (data: ExportData): string => {
         `\\item \\textbf{Total:} ${totalStr}` +
         `\\item \\textbf{CAPEX:} ${capex}` +
         `\\item \\textbf{OPEX:} ${opex}` +
-        '\\end{itemize} \\\\');
-      o.push(`\\textbf{KPI de sucesso} & ${tex(p.kpi_success)} \\\\`);
+        '\\end{itemize} \\\\ \\midrule');
+      o.push(`\\textbf{KPI de sucesso} & ${tex(p.kpi_success)} \\\\ \\midrule`);
       o.push(`\\textbf{Domínio COBIT} & ${tex(p.cobit_domain)} \\\\`);
       o.push('\\bottomrule \\end{longtable}');
     });
   }
 
   // ----- 6. GOVERNANÇA -----
-  o.push('\\section{Governança e Monitoramento}');
+  const narr = data.narratives || {};
+  const intro = narr.intro;        // string | undefined
+  const curvaS = narr.curvaS;
+  const conclusao = narr.conclusao;
+
+  o.push('\\section{Governança, Monitoramento e Conclusão}');
+  if (intro === undefined) {
+    o.push(`A governança de TI da ${tex(c.name)} adota um modelo colegiado, alinhado às boas práticas COBIT 2019, ITIL 4 e ISO/IEC 27001. ` +
+      'O Comitê de Governança Digital é a instância deliberativa responsável por aprovar o portfólio, revisar riscos, ' +
+      'monitorar a execução do PDTI e arbitrar mudanças relevantes. Esta seção consolida estrutura, ritos, indicadores e ' +
+      'gatilhos de auditoria que sustentam a disciplina de execução do plano.');
+  } else if (intro.trim()) {
+    o.push(tex(intro));
+  }
   o.push('\\subsection{Comitê de Governança Digital}');
   o.push('Instância colegiada e deliberativa, presidida pela liderança executiva, com mandato para deliberar sobre o portfólio de TI, aprovar mudanças relevantes, revisar riscos e monitorar a execução do PDTI.');
   if (data.raci.length) {
     o.push('\\begin{longtable}{L{4cm} L{2.6cm} L{2.6cm} L{2.6cm} L{2.6cm}}');
     o.push('\\toprule \\textbf{Processo} & \\textbf{R} & \\textbf{A} & \\textbf{C} & \\textbf{I} \\\\ \\midrule \\endhead \\bottomrule \\endlastfoot');
-    data.raci.forEach(r =>
-      o.push(`${tex(r.process)} & ${tex(r.responsible)} & ${tex(r.accountable)} & ${tex(r.consulted)} & ${tex(r.informed)} \\\\`),
-    );
+    data.raci.forEach((r, i, arr) => {
+      const sep = i < arr.length - 1 ? ' \\midrule' : '';
+      o.push(`${tex(r.process)} & ${tex(r.responsible)} & ${tex(r.accountable)} & ${tex(r.consulted)} & ${tex(r.informed)} \\\\${sep}`);
+    });
     o.push('\\end{longtable}');
   }
 
@@ -720,30 +750,41 @@ export const buildLatex = (data: ExportData): string => {
     o.push('\\subsection{KPIs do PDTI}');
     o.push('\\begin{longtable}{L{6cm} C{2cm} C{2cm} C{2cm} C{2cm}}');
     o.push(`\\toprule \\textbf{KPI} & \\textbf{Unidade} & \\textbf{Atual} & \\textbf{Meta ${y1}} & \\textbf{Meta ${y2}} \\\\ \\midrule \\endhead \\bottomrule \\endlastfoot`);
-    data.kpis.forEach(k =>
-      o.push(`${tex(k.name)} & ${tex(k.unit)} & ${tex(k.current_value)} & ${tex(k.target_year_1 ?? k.target_value)} & ${tex(k.target_year_2)} \\\\`),
-    );
+    data.kpis.forEach((k, i, arr) => {
+      const sep = i < arr.length - 1 ? ' \\midrule' : '';
+      o.push(`${tex(k.name)} & ${tex(k.unit)} & ${tex(k.current_value)} & ${tex(k.target_year_1 ?? k.target_value)} & ${tex(k.target_year_2)} \\\\${sep}`);
+    });
     o.push('\\end{longtable}');
   }
 
-  o.push('\\subsection{Curva S de Execução e Gatilho de Governança}');
-  o.push(`A Curva S consolidada do PDTI da ${tex(c.name)} é monitorada mensalmente pelo Comitê de Governança Digital. ` +
-    `Desvios superiores a 10\\% acionam plano de recuperação, com revisão de escopo, prazo ou recurso. ` +
-    `A linha de base é definida pela soma ponderada do esforço (E da matriz RICE) das ações priorizadas. ` +
-    `Desvios acumulados acima de 20\\% caracterizam \\textbf{gatilho compulsório de auditoria}, ` +
-    `convocando o comitê de auditoria da ${tex(c.name)} para revisão independente, ` +
-    `reporte à diretoria executiva e, quando aplicável, ao conselho de administração ou entidade reguladora competente.`);
+  if (curvaS === undefined) {
+    o.push('\\subsection{Curva S de Execução e Gatilho de Governança}');
+    o.push(`A Curva S consolidada do PDTI da ${tex(c.name)} é monitorada mensalmente pelo Comitê de Governança Digital. ` +
+      `Desvios superiores a 10\\% acionam plano de recuperação, com revisão de escopo, prazo ou recurso. ` +
+      `A linha de base é definida pela soma ponderada do esforço (E da matriz RICE) das ações priorizadas. ` +
+      `Desvios acumulados acima de 20\\% caracterizam \\textbf{gatilho compulsório de auditoria}, ` +
+      `convocando o comitê de auditoria da ${tex(c.name)} para revisão independente, ` +
+      `reporte à diretoria executiva e, quando aplicável, ao conselho de administração ou entidade reguladora competente.`);
+  } else if (curvaS.trim()) {
+    o.push('\\subsection{Curva S de Execução e Gatilho de Governança}');
+    o.push(tex(curvaS));
+  }
 
-  o.push('\\subsection{Conclusão}');
-  o.push(`Este PDTI ${horizon} consolida o roteiro de evolução da TI da ${tex(c.name)} ` +
-    `e atua como instrumento central de alinhamento entre tecnologia e estratégia de longo prazo. ` +
-    `A execução disciplinada das ações priorizadas eleva a maturidade COBIT, reduz a exposição a riscos críticos ` +
-    `e amplia a previsibilidade financeira via separação clara entre CAPEX e OPEX. ` +
-    `Para a ${tex(c.name)}, o PDTI sustenta decisões estratégicas de longo prazo --- incluindo eventuais eventos ` +
-    `de liquidez futura (M\\&A, abertura de capital/IPO) --- ao demonstrar governança madura, controles auditáveis ` +
-    `e aderência às boas práticas de COBIT 2019, ITIL 4, ISO/IEC 27001 e ao arcabouço regulatório aplicável ` +
-    `(LGPD e demais requisitos setoriais). Em última análise, o documento institucionaliza a TI como vetor ` +
-    `de geração de valor, mitigação de riscos e conformidade contínua.`);
+  if (conclusao === undefined) {
+    o.push('\\subsection{Conclusão}');
+    o.push(`Este PDTI ${horizon} consolida o roteiro de evolução da TI da ${tex(c.name)} ` +
+      `e atua como instrumento central de alinhamento entre tecnologia e estratégia de longo prazo. ` +
+      `A execução disciplinada das ações priorizadas eleva a maturidade COBIT, reduz a exposição a riscos críticos ` +
+      `e amplia a previsibilidade financeira via separação clara entre CAPEX e OPEX. ` +
+      `Para a ${tex(c.name)}, o PDTI sustenta decisões estratégicas de longo prazo --- incluindo eventuais eventos ` +
+      `de liquidez futura (M\\&A, abertura de capital/IPO) --- ao demonstrar governança madura, controles auditáveis ` +
+      `e aderência às boas práticas de COBIT 2019, ITIL 4, ISO/IEC 27001 e ao arcabouço regulatório aplicável ` +
+      `(LGPD e demais requisitos setoriais). Em última análise, o documento institucionaliza a TI como vetor ` +
+      `de geração de valor, mitigação de riscos e conformidade contínua.`);
+  } else if (conclusao.trim()) {
+    o.push('\\subsection{Conclusão}');
+    o.push(tex(conclusao));
+  }
 
   o.push('\\end{document}');
   return o.join('\n');

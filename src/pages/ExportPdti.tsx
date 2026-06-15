@@ -13,6 +13,7 @@ import { calculateMaturity, defaultTarget } from '@/lib/maturity-calculator';
 import { buildMarkdown, buildLatex, runQualityGate, type ExportData } from '@/lib/pdti-export';
 import { safeFilename } from '@/lib/format';
 import { getReadableError } from '@/lib/error-messages';
+import { loadNarratives, resolveNarratives } from '@/lib/report-narratives';
 
 const ExportPdti = () => {
   const [companies, setCompanies] = useState<any[]>([]);
@@ -73,6 +74,7 @@ const ExportPdti = () => {
       kpis: (kpis as any[]) || [],
       raci: (raci as any[]) || [],
       swot: (swot as any[]) || [],
+      narratives: resolveNarratives(loadNarratives(selectedCompany), company.name),
       });
     } catch (e) {
       toast.error(getReadableError(e));
