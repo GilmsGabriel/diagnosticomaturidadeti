@@ -92,6 +92,18 @@ export interface ExportData {
   kpis: KpiRow[];
   raci: RaciRow[];
   swot: SwotRow[];
+  /**
+   * Optional user-customised narrative blocks. Each value can be:
+   *  - undefined: exporter uses the built-in default narrative
+   *  - '' (empty string): exporter OMITS the corresponding section/subsection
+   *  - non-empty string: exporter uses the supplied text verbatim
+   * Template variable {{current_company}} is expected to be already resolved.
+   */
+  narratives?: {
+    intro?: string;
+    curvaS?: string;
+    conclusao?: string;
+  };
 }
 
 export interface QualityCheck { label: string; pass: boolean; items: string[]; hint?: string; }
