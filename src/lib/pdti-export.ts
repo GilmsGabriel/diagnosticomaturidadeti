@@ -632,12 +632,13 @@ export const buildLatex = (data: ExportData): string => {
   if (data.risks.length) {
     o.push('Matriz consolidada (Probabilidade $\\times$ Impacto). O escore P$\\times$I varia de 1 a 25.');
     o.push('\\subsection{Matriz de Riscos}');
-    o.push('\\begin{longtable}{L{3.2cm} C{1.5cm} C{1.6cm} C{1.5cm} C{1.6cm} C{1.6cm} L{1.9cm} L{1.9cm}}');
+    o.push('\\begin{longtable}{L{4.2cm} C{1.3cm} C{1.0cm} C{1.0cm} C{1.4cm} C{1.3cm} L{1.8cm} L{1.8cm}}');
     o.push('\\toprule \\textbf{Descrição} & \\textbf{Origem SWOT} & \\textbf{Tipo} & \\textbf{Prob.} & \\textbf{Impacto} & \\textbf{Cálculo (P$\\times$I)} & \\textbf{Estratégia} & \\textbf{Responsável} \\\\');
     o.push('\\midrule \\endhead \\bottomrule \\endlastfoot');
-    data.risks.forEach(r => {
+    data.risks.forEach((r, i, arr) => {
       const calc = `$${r.probability} \\times ${r.impact} = ${r.probability * r.impact}$`;
-      o.push(`${tex(r.description)} & ${tex(r.swot_origin || '--')} & ${tex(typeLabel(r.risk_type))} & ${tex(qual(r.probability))} & ${tex(qual(r.impact))} & ${calc} & ${tex(responseLabel(r.response_strategy))} & ${tex(r.responsible)} \\\\`);
+      const sep = i < arr.length - 1 ? ' \\midrule' : '';
+      o.push(`${tex(r.description)} & ${tex(r.swot_origin || '--')} & ${tex(typeLabel(r.risk_type))} & ${tex(qual(r.probability))} & ${tex(qual(r.impact))} & ${calc} & ${tex(responseLabel(r.response_strategy))} & ${tex(r.responsible)} \\\\${sep}`);
     });
     o.push('\\end{longtable}');
 
